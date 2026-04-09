@@ -87,6 +87,7 @@ interface Proposal {
   submissionDate: string | null
   createdAt: string
   updatedAt: string
+  thematicAreas: { id: string; thematicAreaId: string; thematicArea: { id: string; name: string; color: string } }[]
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -144,6 +145,7 @@ export default function ProposalsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Proposal | null>(null)
+  const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([])
 
   // ── Debounced search ────────────────────────────────────────────────────
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -169,6 +171,16 @@ export default function ProposalsPage() {
     queryFn: async () => {
       const res = await fetch('/api/team')
       if (!res.ok) throw new Error('Failed to fetch team members')
+      return res.json()
+    },
+  })
+
+  // ── Query: Thematic Areas ─────────────────────────────────────────────
+  const { data: thematicAreas = [] } = useQuery<{ id: string; name: string; color: string }[]>({
+    queryKey: ['thematic-areas'],
+    queryFn: async () => {
+      const res = await fetch('/api/thematic-areas')
+      if (!res.ok) throw new Error('Failed to fetch thematic areas')
       return res.json()
     },
   })
@@ -200,6 +212,7 @@ export default function ProposalsPage() {
         ...data,
         deadline: data.deadline ? format(data.deadline, 'yyyy-MM-dd') : null,
         submissionDate: data.submissionDate ? format(data.submissionDate, 'yyyy-MM-dd') : null,
+        thematicAreaIds: selectedAreaIds,
       }
       if (editingProposal) {
         const res = await fetch(`/api/proposals/${editingProposal.id}`, {
@@ -282,6 +295,7 @@ export default function ProposalsPage() {
       deadline: null,
       submissionDate: null,
     })
+    setSelectedAreaIds([])
     setDialogOpen(true)
   }, [form])
 
@@ -299,6 +313,7 @@ export default function ProposalsPage() {
         deadline: proposal.deadline ? new Date(proposal.deadline) : null,
         submissionDate: proposal.submissionDate ? new Date(proposal.submissionDate) : null,
       })
+      setSelectedAreaIds(proposal.thematicAreas?.map(ta => ta.thematicAreaId) || [])
       setDialogOpen(true)
     },
     [form]
@@ -541,8 +556,23 @@ export default function ProposalsPage() {
                 <TableBody>
                   {proposals.map((proposal) => (
                     <TableRow key={proposal.id} className="group">
-                      <TableCell className="font-medium text-slate-900 max-w-[220px] truncate">
-                        {proposal.name}
+                      <TableCell className="font-medium text-slate-900 max-w-[220px]">
+                        <p className="truncate">{proposal.name}</p>
+                        {proposal.thematicAreas?.length > 0 && (
+                          <div className="mt-1 flex items-center gap-1">
+                            {proposal.thematicAreas.slice(0, 3).map((ta) => (
+                              <span
+                                key={ta.id}
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: ta.thematicArea.color }}
+                                title={ta.thematicArea.name}
+                              />
+                            ))}
+                            {proposal.thematicAreas.length > 3 && (
+                              <span className="text-[10px] text-slate-400">+{proposal.thematicAreas.length - 3}</span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-slate-600 font-mono text-xs">
                         {proposal.rfpNumber || '—'}
@@ -606,6 +636,21 @@ export default function ProposalsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <h3 className="font-semibold text-slate-900 truncate">{proposal.name}</h3>
+                      {proposal.thematicAreas?.length > 0 && (
+                        <div className="mt-1 flex items-center gap-1">
+                          {proposal.thematicAreas.slice(0, 3).map((ta) => (
+                            <span
+                              key={ta.id}
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: ta.thematicArea.color }}
+                              title={ta.thematicArea.name}
+                            />
+                          ))}
+                          {proposal.thematicAreas.length > 3 && (
+                            <span className="text-[10px] text-slate-400">+{proposal.thematicAreas.length - 3}</span>
+                          )}
+                        </div>
+                      )}
                       {proposal.rfpNumber && (
                         <p className="text-xs text-slate-500 font-mono mt-0.5">{proposal.rfpNumber}</p>
                       )}
@@ -800,6 +845,47 @@ export default function ProposalsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Thematic Areas */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Thematic Areas</Label>
+              <div className="flex flex-wrap gap-2">
+                {thematicAreas.map((area) => {
+                  const isSelected = selectedAreaIds.includes(area.id)
+                  return (
+                    <button
+                      key={area.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAreaIds(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== area.id)
+                            : [...prev, area.id]
+                        )
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border"
+                      style={{
+                        backgroundColor: isSelected ? area.color + '20' : 'transparent',
+                        borderColor: isSelected ? area.color : '#cbd5e1',
+                        color: isSelected ? area.color : '#64748b',
+                      }}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: area.color }}
+                      />
+                      {area.name}
+                      {isSelected && <span className="ml-0.5">✓</span>}
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedAreaIds.length > 0 && (
+                <p className="text-xs text-slate-500">
+                  {selectedAreaIds.length} area{selectedAreaIds.length !== 1 ? 's' : ''} selected
+                </p>
+              )}
             </div>
 
             {/* Remarks */}

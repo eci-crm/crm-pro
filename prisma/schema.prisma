@@ -20,28 +20,51 @@ model Client {
 model TeamMember {
   id        String   @id @default(cuid())
   name      String
-  email     String   @default("")
-  role      String   @default("Member")
+  email     String   @unique
+  password  String   @default("")
+  role      String   @default("Member") // Admin, Manager, Member, Viewer
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   proposals Proposal[]
 }
 
+model ThematicArea {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#3b82f6")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  proposals ProposalThematicArea[]
+}
+
 model Proposal {
-  id             String      @id @default(cuid())
-  name           String
-  rfpNumber      String      @default("")
-  clientId       String
-  client         Client      @relation(fields: [clientId], references: [id])
-  assignedMemberId String    @default("")
-  assignedMember TeamMember? @relation(fields: [assignedMemberId], references: [id])
-  value          Float       @default(0)
-  status         String      @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
-  remarks        String      @default("")
-  deadline       DateTime?
-  submissionDate DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id               String                @id @default(cuid())
+  name             String
+  rfpNumber        String                @default("")
+  clientId         String
+  client           Client                @relation(fields: [clientId], references: [id])
+  assignedMemberId String                @default("")
+  assignedMember   TeamMember?           @relation(fields: [assignedMemberId], references: [id])
+  value            Float                 @default(0)
+  status           String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
+  remarks          String                @default("")
+  deadline         DateTime?
+  submissionDate   DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  thematicAreas    ProposalThematicArea[]
+}
+
+model ProposalThematicArea {
+  id            String       @id @default(cuid())
+  proposalId    String
+  thematicAreaId String
+  proposal      Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  thematicArea  ThematicArea @relation(fields: [thematicAreaId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, thematicAreaId])
 }
 
 model Resource {

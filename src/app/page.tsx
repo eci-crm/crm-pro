@@ -2,6 +2,7 @@
 
 import { useCrmStore } from '@/lib/store'
 import CrmLayout from '@/components/crm-layout'
+import LoginPage from '@/components/login-page'
 import Dashboard from '@/components/crm/dashboard'
 import ClientsPage from '@/components/crm/clients'
 import ProposalsPage from '@/components/crm/proposals'
@@ -21,7 +22,13 @@ const pageComponents: Record<string, React.ComponentType> = {
 }
 
 export default function Home() {
+  const isAuthenticated = useCrmStore((s) => s.isAuthenticated)
   const currentPage = useCrmStore((s) => s.currentPage)
+
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+
   const PageComponent = pageComponents[currentPage] ?? Dashboard
 
   return (

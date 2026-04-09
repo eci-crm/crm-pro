@@ -12,11 +12,37 @@ async function main() {
   console.log("🌱 Seeding database...\n");
 
   // ─── Clean existing data ───────────────────────────────────────────
+  await prisma.proposalThematicArea.deleteMany();
   await prisma.proposal.deleteMany();
   await prisma.teamMember.deleteMany();
   await prisma.client.deleteMany();
   await prisma.setting.deleteMany();
+  await prisma.thematicArea.deleteMany();
   console.log("✅ Cleared existing data\n");
+
+  // ─── 0. Thematic Areas ─────────────────────────────────────────────
+  const areaData = [
+    { name: "Information Technology", color: "#3b82f6", sortOrder: 0 },
+    { name: "Cybersecurity", color: "#8b5cf6", sortOrder: 1 },
+    { name: "Cloud Infrastructure", color: "#06b6d4", sortOrder: 2 },
+    { name: "ERP Systems", color: "#f59e0b", sortOrder: 3 },
+    { name: "Data Analytics", color: "#10b981", sortOrder: 4 },
+    { name: "Networking & Telecom", color: "#ec4899", sortOrder: 5 },
+    { name: "Financial Systems", color: "#ef4444", sortOrder: 6 },
+    { name: "SCADA & IoT", color: "#f97316", sortOrder: 7 },
+    { name: "Supply Chain", color: "#14b8a6", sortOrder: 8 },
+    { name: "HR & Workforce", color: "#6366f1", sortOrder: 9 },
+    { name: "Fleet Management", color: "#84cc16", sortOrder: 10 },
+    { name: "Power & Energy", color: "#eab308", sortOrder: 11 },
+  ];
+
+  const thematicAreas = [];
+  for (const a of areaData) {
+    const area = await prisma.thematicArea.create({ data: a });
+    thematicAreas.push(area);
+    console.log(`  🏷️  Area: ${a.name}`);
+  }
+  console.log(`  ✅ ${thematicAreas.length} thematic areas created\n`);
 
   // ─── 1. Clients ────────────────────────────────────────────────────
   const clientData = [
@@ -38,28 +64,27 @@ async function main() {
   }
   console.log(`  ✅ ${clients.length} clients created\n`);
 
-  // ─── 2. Team Members ───────────────────────────────────────────────
+  // ─── 2. Team Members (with passwords) ─────────────────────────────
   const memberData = [
-    { name: "Ahmed Khan", email: "ahmed@crmpro.com", role: "Manager" },
-    { name: "Sara Ali", email: "sara@crmpro.com", role: "Member" },
-    { name: "Usman Tariq", email: "usman@crmpro.com", role: "Member" },
-    { name: "Fatima Noor", email: "fatima@crmpro.com", role: "Admin" },
-    { name: "Bilal Ahmed", email: "bilal@crmpro.com", role: "Member" },
-    { name: "Ayesha Siddiqui", email: "ayesha@crmpro.com", role: "Manager" },
+    { name: "Ahmed Khan", email: "ahmed@crmpro.com", password: "admin123", role: "Admin" },
+    { name: "Sara Ali", email: "sara@crmpro.com", password: "member123", role: "Member" },
+    { name: "Usman Tariq", email: "usman@crmpro.com", password: "member123", role: "Member" },
+    { name: "Fatima Noor", email: "fatima@crmpro.com", password: "manager123", role: "Manager" },
+    { name: "Bilal Ahmed", email: "bilal@crmpro.com", password: "member123", role: "Member" },
+    { name: "Ayesha Siddiqui", email: "ayesha@crmpro.com", password: "manager123", role: "Manager" },
   ];
 
   const members = [];
   for (const m of memberData) {
     const member = await prisma.teamMember.create({ data: m });
     members.push(member);
-    console.log(`  👤 Team: ${m.name} (${m.role})`);
+    console.log(`  👤 Team: ${m.name} (${m.role}) — ${m.email}`);
   }
   console.log(`  ✅ ${members.length} team members created\n`);
 
-  // ─── 3. Proposals ──────────────────────────────────────────────────
-  // Date helpers
+  // ─── 3. Proposals with Thematic Areas ─────────────────────────────
   const today = new Date();
-  const in2Days = addDays(2);      // urgent deadline (within 3 days)
+  const in2Days = addDays(2);
   const in5Days = addDays(5);
   const in10Days = addDays(10);
   const in15Days = addDays(15);
@@ -72,190 +97,127 @@ async function main() {
   const past30Days = addDays(-30);
 
   const proposalData = [
-    // ── Won (3) ──
     {
       name: "Network Infrastructure Upgrade",
-      rfpNumber: "RFP-2024-001",
-      clientId: clients[0].id,   // PTCL
-      assignedMemberId: members[0].id, // Ahmed
-      value: 15000000,
-      status: "Won",
+      rfpNumber: "RFP-2024-001", clientId: clients[0].id, assignedMemberId: members[0].id,
+      value: 15000000, status: "Won",
       remarks: "Upgrade nationwide fiber optic backbone for PTCL. Phase 1 approved.",
-      deadline: past15Days,
-      submissionDate: past30Days,
+      deadline: past15Days, submissionDate: past30Days,
+      thematicAreas: [0, 5], // IT, Networking
     },
     {
       name: "Core Banking System Modernization",
-      rfpNumber: "RFP-2024-012",
-      clientId: clients[1].id,   // NBP
-      assignedMemberId: members[3].id, // Fatima
-      value: 50000000,
-      status: "Won",
+      rfpNumber: "RFP-2024-012", clientId: clients[1].id, assignedMemberId: members[3].id,
+      value: 50000000, status: "Won",
       remarks: "Modernize legacy core banking platform to cloud-native architecture.",
-      deadline: past5Days,
-      submissionDate: past30Days,
+      deadline: past5Days, submissionDate: past30Days,
+      thematicAreas: [6, 2], // Financial, Cloud
     },
     {
       name: "SCADA System Implementation",
-      rfpNumber: "TND-2024-007",
-      clientId: clients[2].id,   // SSGC
-      assignedMemberId: members[5].id, // Ayesha
-      value: 8500000,
-      status: "Won",
+      rfpNumber: "TND-2024-007", clientId: clients[2].id, assignedMemberId: members[5].id,
+      value: 8500000, status: "Won",
       remarks: "Supervisory control and data acquisition for gas pipeline monitoring.",
-      deadline: past15Days,
-      submissionDate: past30Days,
+      deadline: past15Days, submissionDate: past30Days,
+      thematicAreas: [7, 0], // SCADA, IT
     },
-
-    // ── In Process (4) ──
     {
       name: "ERP System Implementation",
-      rfpNumber: "RFP-2024-018",
-      clientId: clients[4].id,   // WAPDA
-      assignedMemberId: members[1].id, // Sara
-      value: 35000000,
-      status: "In Process",
+      rfpNumber: "RFP-2024-018", clientId: clients[4].id, assignedMemberId: members[1].id,
+      value: 35000000, status: "In Process",
       remarks: "End-to-end ERP covering finance, HR, procurement, and asset management.",
-      deadline: in20Days,
-      submissionDate: past15Days,
+      deadline: in20Days, submissionDate: past15Days,
+      thematicAreas: [3, 0], // ERP, IT
     },
     {
       name: "Fleet Management Solution",
-      rfpNumber: "TND-2024-022",
-      clientId: clients[5].id,   // PIA
-      assignedMemberId: members[2].id, // Usman
-      value: 12000000,
-      status: "In Process",
+      rfpNumber: "TND-2024-022", clientId: clients[5].id, assignedMemberId: members[2].id,
+      value: 12000000, status: "In Process",
       remarks: "GPS-enabled fleet tracking and maintenance scheduling system.",
-      deadline: in30Days,
-      submissionDate: past5Days,
+      deadline: in30Days, submissionDate: past5Days,
+      thematicAreas: [10, 7], // Fleet, IoT
     },
     {
       name: "Agricultural Supply Chain Platform",
-      rfpNumber: "RFP-2024-025",
-      clientId: clients[6].id,   // Fauji Foundation
-      assignedMemberId: members[4].id, // Bilal
-      value: 7500000,
-      status: "In Process",
+      rfpNumber: "RFP-2024-025", clientId: clients[6].id, assignedMemberId: members[4].id,
+      value: 7500000, status: "In Process",
       remarks: "Digital supply chain management for fertilizer and seed distribution.",
-      deadline: in15Days,
-      submissionDate: past5Days,
+      deadline: in15Days, submissionDate: past5Days,
+      thematicAreas: [8, 4], // Supply Chain, Data Analytics
     },
     {
       name: "Cybersecurity Audit & Compliance",
-      rfpNumber: "TND-2024-030",
-      clientId: clients[0].id,   // PTCL
-      assignedMemberId: members[0].id, // Ahmed
-      value: 5000000,
-      status: "In Process",
+      rfpNumber: "TND-2024-030", clientId: clients[0].id, assignedMemberId: members[0].id,
+      value: 5000000, status: "In Process",
       remarks: "Comprehensive security audit, vulnerability assessment, and ISO 27001 compliance.",
-      deadline: in10Days,
-      submissionDate: today,
+      deadline: in10Days, submissionDate: today,
+      thematicAreas: [1, 0], // Cybersecurity, IT
     },
-
-    // ── Submitted (3) ──
     {
       name: "Power Grid Monitoring Dashboard",
-      rfpNumber: "RFP-2024-028",
-      clientId: clients[7].id,   // Hub Power
-      assignedMemberId: members[5].id, // Ayesha
-      value: 9800000,
-      status: "Submitted",
+      rfpNumber: "RFP-2024-028", clientId: clients[7].id, assignedMemberId: members[5].id,
+      value: 9800000, status: "Submitted",
       remarks: "Real-time power grid monitoring with predictive maintenance analytics.",
-      deadline: in45Days,
-      submissionDate: today,
+      deadline: in45Days, submissionDate: today,
+      thematicAreas: [11, 4], // Power, Data Analytics
     },
     {
       name: "HR Management Portal",
-      rfpNumber: "TND-2024-015",
-      clientId: clients[1].id,   // NBP
-      assignedMemberId: members[3].id, // Fatima
-      value: 4500000,
-      status: "Submitted",
+      rfpNumber: "TND-2024-015", clientId: clients[1].id, assignedMemberId: members[3].id,
+      value: 4500000, status: "Submitted",
       remarks: "Employee self-service portal with leave, payroll, and performance modules.",
-      deadline: in60Days,
-      submissionDate: today,
+      deadline: in60Days, submissionDate: today,
+      thematicAreas: [9, 3], // HR, ERP
     },
     {
       name: "Gas Distribution Management System",
-      rfpNumber: "RFP-2024-032",
-      clientId: clients[2].id,   // SSGC
-      assignedMemberId: members[1].id, // Sara
-      value: 18500000,
-      status: "Submitted",
+      rfpNumber: "RFP-2024-032", clientId: clients[2].id, assignedMemberId: members[1].id,
+      value: 18500000, status: "Submitted",
       remarks: "End-to-end gas distribution management including billing and leakage detection.",
-      deadline: in45Days,
-      submissionDate: addDays(-1),
+      deadline: in45Days, submissionDate: addDays(-1),
+      thematicAreas: [7, 2], // SCADA, Cloud
     },
-
-    // ── In Evaluation (2) ──
     {
       name: "Customer Relationship Management Platform",
-      rfpNumber: "TND-2024-019",
-      clientId: clients[5].id,   // PIA
-      assignedMemberId: members[2].id, // Usman
-      value: 6200000,
-      status: "In Evaluation",
+      rfpNumber: "TND-2024-019", clientId: clients[5].id, assignedMemberId: members[2].id,
+      value: 6200000, status: "In Evaluation",
       remarks: "Unified CRM for loyalty programs, booking support, and customer analytics.",
-      deadline: in10Days,
-      submissionDate: past15Days,
+      deadline: in10Days, submissionDate: past15Days,
+      thematicAreas: [4, 3], // Data Analytics, ERP
     },
     {
       name: "Steel Production Optimization Suite",
-      rfpNumber: "RFP-2024-005",
-      clientId: clients[3].id,   // Pakistan Steel Mills
-      assignedMemberId: members[4].id, // Bilal
-      value: 28000000,
-      status: "In Evaluation",
+      rfpNumber: "RFP-2024-005", clientId: clients[3].id, assignedMemberId: members[4].id,
+      value: 28000000, status: "In Evaluation",
       remarks: "IoT-based production line monitoring with quality assurance dashboards.",
-      deadline: in20Days,
-      submissionDate: past15Days,
+      deadline: in20Days, submissionDate: past15Days,
+      thematicAreas: [7, 4], // IoT, Data Analytics
     },
-
-    // ── Pending (2) ──
     {
       name: "Data Center Migration Strategy",
-      rfpNumber: "TND-2024-035",
-      clientId: clients[0].id,   // PTCL
-      assignedMemberId: members[0].id, // Ahmed
-      value: 22000000,
-      status: "Pending",
+      rfpNumber: "TND-2024-035", clientId: clients[0].id, assignedMemberId: members[0].id,
+      value: 22000000, status: "Pending",
       remarks: "Migration of on-premise data centers to hybrid cloud infrastructure.",
-      deadline: in60Days,
-      submissionDate: null,
+      deadline: in60Days, submissionDate: null,
+      thematicAreas: [2, 0], // Cloud, IT
     },
     {
       name: "Smart Metering Infrastructure",
-      rfpNumber: "RFP-2024-040",
-      clientId: clients[4].id,   // WAPDA
-      assignedMemberId: members[5].id, // Ayesha
-      value: 42000000,
-      status: "Pending",
+      rfpNumber: "RFP-2024-040", clientId: clients[4].id, assignedMemberId: members[5].id,
+      value: 42000000, status: "Pending",
       remarks: "AMI smart meter deployment plan covering 500,000 connections in Lahore.",
-      deadline: in60Days,
-      submissionDate: null,
+      deadline: in60Days, submissionDate: null,
+      thematicAreas: [7, 11], // IoT, Power
     },
-
-    // ── Urgent: deadline within 3 days ──
     {
       name: "Disaster Recovery Planning",
-      rfpNumber: "RFP-2024-042",
-      clientId: clients[1].id,   // NBP
-      assignedMemberId: members[3].id, // Fatima
-      value: 3500000,
-      status: "Submitted",
+      rfpNumber: "RFP-2024-042", clientId: clients[1].id, assignedMemberId: members[3].id,
+      value: 3500000, status: "Submitted",
       remarks: "Business continuity and disaster recovery plan for all NBP branches nationwide.",
-      deadline: in2Days,
-      submissionDate: past15Days,
+      deadline: in2Days, submissionDate: past15Days,
+      thematicAreas: [1, 2], // Cybersecurity, Cloud
     },
   ];
-
-  // Adjust: we have 3 Won + 4 In Process + 3 Submitted (incl urgent) + 2 In Evaluation + 2 Pending = 14
-  // Add one more Submitted to reach 15 total proposals (keeps required counts correct)
-  // Actually let me recount:
-  // Won: 3, In Process: 4, Submitted: 4 (including urgent one), In Evaluation: 2, Pending: 2 = 15 total ✓
-  // Requirements: 3 Won ✓, 4 In Process ✓, 3 Submitted ✓ (4 submitted but that's fine, more is ok)
-  // 2 In Evaluation ✓, 2 Pending ✓, 1 deadline within 3 days ✓
 
   const proposals = [];
   for (const p of proposalData) {
@@ -270,15 +232,17 @@ async function main() {
         remarks: p.remarks,
         deadline: p.deadline,
         submissionDate: p.submissionDate,
+        thematicAreas: {
+          create: p.thematicAreas.map((areaIdx) => ({
+            thematicAreaId: thematicAreas[areaIdx].id,
+          })),
+        },
       },
+      include: { thematicAreas: true },
     });
     proposals.push(proposal);
-    const daysLabel = p.deadline
-      ? p.deadline < today
-        ? "OVERDUE"
-        : `${Math.ceil((p.deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))}d left`
-      : "No deadline";
-    console.log(`  📋 [${p.status}] ${p.name} — PKR ${(p.value / 1000000).toFixed(1)}M (${daysLabel})`);
+    const areaNames = p.thematicAreas.map((i) => thematicAreas[i].name).join(", ");
+    console.log(`  📋 [${p.status}] ${p.name} — Areas: ${areaNames}`);
   }
   console.log(`  ✅ ${proposals.length} proposals created\n`);
 
@@ -290,19 +254,27 @@ async function main() {
   ];
 
   for (const s of settingData) {
-    await prisma.setting.create({ data: s });
-    console.log(`  ⚙️  Setting: ${s.key} = "${s.value}"`);
+    await prisma.setting.upsert({
+      where: { key: s.key },
+      update: { value: s.value },
+      create: s,
+    });
   }
-  console.log(`  ✅ ${settingData.length} settings created\n`);
+  console.log(`  ✅ ${settingData.length} settings upserted\n`);
 
   // ─── Summary ───────────────────────────────────────────────────────
   console.log("═══════════════════════════════════════════════");
   console.log("  🎉 Seed completed successfully!");
+  console.log(`  🏷️  Areas:     ${thematicAreas.length}`);
   console.log(`  🏢 Clients:    ${clients.length}`);
   console.log(`  👤 Team:       ${members.length}`);
   console.log(`  📋 Proposals:  ${proposals.length}`);
   console.log(`  ⚙️  Settings:   ${settingData.length}`);
   console.log("═══════════════════════════════════════════════");
+  console.log("\n  🔑 Login credentials:");
+  for (const m of memberData) {
+    console.log(`     ${m.email} / ${m.password} (${m.role})`);
+  }
 }
 
 main()

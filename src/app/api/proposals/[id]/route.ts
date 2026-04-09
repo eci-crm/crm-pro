@@ -15,6 +15,11 @@ export async function GET(
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
         },
+        thematicAreas: {
+          include: {
+            thematicArea: true,
+          },
+        },
       },
     });
 
@@ -86,6 +91,22 @@ export async function PUT(
       }
     }
 
+    const { thematicAreaIds } = body;
+
+    // Handle thematic area updates in a transaction
+    if (thematicAreaIds !== undefined) {
+      await db.$transaction([
+        db.proposalThematicArea.deleteMany({ where: { proposalId: id } }),
+        ...(Array.isArray(thematicAreaIds) && thematicAreaIds.length > 0
+          ? thematicAreaIds.map((areaId: string) =>
+              db.proposalThematicArea.create({
+                data: { proposalId: id, thematicAreaId: areaId },
+              })
+            )
+          : []),
+      ]);
+    }
+
     const proposal = await db.proposal.update({
       where: { id },
       data: {
@@ -109,6 +130,11 @@ export async function PUT(
         },
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        thematicAreas: {
+          include: {
+            thematicArea: true,
+          },
         },
       },
     });

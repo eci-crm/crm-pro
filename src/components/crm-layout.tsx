@@ -13,10 +13,13 @@ import {
   Menu,
   ChevronLeft,
   Building2,
+  LogOut,
+  UserCircle,
 } from 'lucide-react'
 import { useCrmStore } from '@/lib/store'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
@@ -33,6 +36,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface NavItem {
   id: string
@@ -49,6 +60,30 @@ const navItems: NavItem[] = [
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function getRoleBadgeColor(role: string): string {
+  switch (role) {
+    case 'Admin':
+      return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+    case 'Manager':
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+    case 'Member':
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+    case 'Viewer':
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300'
+    default:
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300'
+  }
+}
 
 function SidebarNavContent({
   currentPage,
@@ -110,12 +145,21 @@ function SidebarNavContent({
 }
 
 export default function CrmLayout({ children }: { children: React.ReactNode }) {
-  const { currentPage, setCurrentPage, sidebarOpen, setSidebarOpen } =
+  const { currentPage, setCurrentPage, sidebarOpen, setSidebarOpen, user, setUser } =
     useCrmStore()
   const isMobile = useIsMobile()
 
   // On mobile, always start collapsed
   const isCollapsed = !isMobile && !sidebarOpen
+
+  const handleLogout = () => {
+    setUser(null)
+    toast.success('You have been signed out')
+  }
+
+  const handleNavigateSettings = () => {
+    setCurrentPage('settings')
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -224,17 +268,64 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
             </h2>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-foreground">John Doe</p>
-              <p className="text-xs text-muted-foreground">
-                john@crmpro.com
-              </p>
-            </div>
-            <Avatar className="h-9 w-9">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
-                JD
-              </AvatarFallback>
-            </Avatar>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <Avatar className="h-9 w-9 ring-2 ring-primary/20">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-700 text-white text-sm font-semibold">
+                      {user ? getInitials(user.name) : '??'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block text-right">
+                    <p className="text-sm font-medium text-foreground leading-tight">
+                      {user?.name || 'User'}
+                    </p>
+                    <span
+                      className={cn(
+                        'inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5',
+                        getRoleBadgeColor(user?.role || '')
+                      )}
+                    >
+                      {user?.role || 'Unknown'}
+                    </span>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-sm font-medium">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {user?.email}
+                    </p>
+                    <span
+                      className={cn(
+                        'inline-block self-start text-[10px] font-semibold px-2 py-0.5 rounded',
+                        getRoleBadgeColor(user?.role || '')
+                      )}
+                    >
+                      {user?.role}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleNavigateSettings}
+                  className="cursor-pointer"
+                >
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:text-red-400 dark:focus:bg-red-950/30"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
         },
+        thematicAreas: {
+          include: {
+            thematicArea: true,
+          },
+        },
       },
     });
 
@@ -119,6 +124,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { thematicAreaIds } = body;
+
     const proposal = await db.proposal.create({
       data: {
         name: name.trim(),
@@ -130,6 +137,13 @@ export async function POST(request: NextRequest) {
         remarks: remarks || "",
         deadline: deadline ? new Date(deadline) : null,
         submissionDate: submissionDate ? new Date(submissionDate) : null,
+        thematicAreas: Array.isArray(thematicAreaIds) && thematicAreaIds.length > 0
+          ? {
+              create: thematicAreaIds.map((areaId: string) => ({
+                thematicAreaId: areaId,
+              })),
+            }
+          : undefined,
       },
       include: {
         client: {
@@ -137,6 +151,11 @@ export async function POST(request: NextRequest) {
         },
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        thematicAreas: {
+          include: {
+            thematicArea: true,
+          },
         },
       },
     });

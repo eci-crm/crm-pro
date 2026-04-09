@@ -57,6 +57,10 @@ import {
   CalendarDays,
   FolderOpen,
   BarChart3,
+  Palette,
+  Plus,
+  Tag,
+  Check,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -105,6 +109,23 @@ const CRM_SECTIONS: CrmSection[] = [
 ]
 
 const ROLE_OPTIONS = ['Admin', 'Manager', 'Member', 'Viewer'] as const
+
+// ── Thematic Area Types & Constants ─────────────────────────────────────────
+
+interface ThematicArea {
+  id: string
+  name: string
+  color: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+const PRESET_COLORS = [
+  '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981',
+  '#f59e0b', '#ef4444', '#ec4899', '#f97316',
+  '#6366f1', '#84cc16', '#14b8a6', '#eab308',
+]
 
 function getRoleBadgeVariant(role: string) {
   switch (role) {
@@ -744,6 +765,372 @@ function SectionCustomizationTab() {
   )
 }
 
+// ── Thematic Areas Tab ─────────────────────────────────────────────────────
+
+function SortableAreaItem({ area, onEdit, onDelete }: {
+  area: ThematicArea
+  onEdit: (area: ThematicArea) => void
+  onDelete: (area: ThematicArea) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: area.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 rounded-lg border bg-card p-4 transition-shadow ${
+        isDragging ? 'shadow-lg opacity-80' : 'shadow-sm hover:shadow-md'
+      }`}
+    >
+      <button
+        type="button"
+        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+      <div
+        className="h-8 w-8 rounded-full flex-shrink-0"
+        style={{ backgroundColor: area.color }}
+      />
+      <span className="flex-1 text-sm font-medium text-foreground truncate">
+        {area.name}
+      </span>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onEdit(area)}
+        >
+          <Pencil className="h-4 w-4" />
+          <span className="sr-only">Edit</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={() => onDelete(area)}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete</span>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ThematicAreasTab() {
+  const queryClient = useQueryClient()
+
+  const { data: areas = [], isLoading } = useQuery<ThematicArea[]>({
+    queryKey: ['thematic-areas'],
+    queryFn: async () => {
+      const res = await fetch('/api/thematic-areas')
+      if (!res.ok) throw new Error('Failed to fetch thematic areas')
+      return res.json()
+    },
+  })
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [editingArea, setEditingArea] = useState<ThematicArea | null>(null)
+  const [deletingArea, setDeletingArea] = useState<ThematicArea | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formColor, setFormColor] = useState(PRESET_COLORS[0])
+
+  const resetForm = () => {
+    setFormName('')
+    setFormColor(PRESET_COLORS[0])
+    setEditingArea(null)
+  }
+
+  const openCreateDialog = () => {
+    resetForm()
+    setDialogOpen(true)
+  }
+
+  const openEditDialog = (area: ThematicArea) => {
+    setEditingArea(area)
+    setFormName(area.name)
+    setFormColor(area.color)
+    setDialogOpen(true)
+  }
+
+  const openDeleteDialog = (area: ThematicArea) => {
+    setDeletingArea(area)
+    setDeleteDialogOpen(true)
+  }
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; color: string }) => {
+      const res = await fetch('/api/thematic-areas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create thematic area')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Thematic area created successfully')
+      queryClient.invalidateQueries({ queryKey: ['thematic-areas'] })
+      setDialogOpen(false)
+      resetForm()
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name: string; color: string } }) => {
+      const res = await fetch(`/api/thematic-areas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update thematic area')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Thematic area updated successfully')
+      queryClient.invalidateQueries({ queryKey: ['thematic-areas'] })
+      setDialogOpen(false)
+      resetForm()
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/thematic-areas/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete thematic area')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Thematic area deleted successfully')
+      queryClient.invalidateQueries({ queryKey: ['thematic-areas'] })
+      setDeleteDialogOpen(false)
+      setDeletingArea(null)
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const reorderMutation = useMutation({
+    mutationFn: async (items: { id: string; sortOrder: number }[]) => {
+      const res = await fetch('/api/thematic-areas/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      })
+      if (!res.ok) throw new Error('Failed to reorder')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['thematic-areas'] })
+    },
+  })
+
+  const handleSubmit = () => {
+    if (!formName.trim()) {
+      toast.error('Area name is required')
+      return
+    }
+    if (editingArea) {
+      updateMutation.mutate({
+        id: editingArea.id,
+        data: { name: formName.trim(), color: formColor },
+      })
+    } else {
+      createMutation.mutate({ name: formName.trim(), color: formColor })
+    }
+  }
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = areas.findIndex((a) => a.id === active.id)
+    const newIndex = areas.findIndex((a) => a.id === over.id)
+    const reordered = arrayMove(areas, oldIndex, newIndex)
+
+    reorderMutation.mutate(
+      reordered.map((area, index) => ({
+        id: area.id,
+        sortOrder: index,
+      }))
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Thematic Areas</h3>
+          <p className="text-sm text-muted-foreground">
+            Manage the thematic areas for your proposals.
+          </p>
+        </div>
+        <Button onClick={openCreateDialog}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Area
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : areas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Tag className="mb-3 h-12 w-12 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-muted-foreground">
+                No thematic areas yet
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                Click &quot;Add Area&quot; to get started.
+              </p>
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={areas.map((a) => a.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {areas.map((area) => (
+                    <SortableAreaItem
+                      key={area.id}
+                      area={area}
+                      onEdit={openEditDialog}
+                      onDelete={openDeleteDialog}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingArea ? 'Edit Thematic Area' : 'Add Thematic Area'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingArea
+                ? 'Update the thematic area details below.'
+                : 'Fill in the details to create a new thematic area.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="area-name">Area Name *</Label>
+              <Input
+                id="area-name"
+                placeholder="e.g., Environmental Planning"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`relative h-7 w-7 rounded-full transition-all ${
+                      formColor === color
+                        ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110'
+                        : 'hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setFormColor(color)}
+                    aria-label={`Select color ${color}`}
+                  >
+                    {formColor === color && (
+                      <Check className="h-4 w-4 text-white absolute inset-0 m-auto drop-shadow-sm" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting
+                ? 'Saving...'
+                : editingArea
+                  ? 'Update Area'
+                  : 'Create Area'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Thematic Area</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{' '}
+              <strong>{deletingArea?.name}</strong>? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingArea && deleteMutation.mutate(deletingArea.id)}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
 // ── Main Settings Page ─────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -759,6 +1146,7 @@ export default function SettingsPage() {
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="team">Team Members</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
+          <TabsTrigger value="areas">Thematic Areas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -771,6 +1159,10 @@ export default function SettingsPage() {
 
         <TabsContent value="sections">
           <SectionCustomizationTab />
+        </TabsContent>
+
+        <TabsContent value="areas">
+          <ThematicAreasTab />
         </TabsContent>
       </Tabs>
     </div>
