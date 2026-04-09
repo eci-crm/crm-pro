@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const folderId = searchParams.get("folderId");
+
+    const where: { folderId?: string | null } = {};
+    if (folderId === "root" || folderId === "null") {
+      where.folderId = null;
+    } else if (folderId) {
+      where.folderId = folderId;
+    }
+
     const resources = await db.resource.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -11,6 +22,13 @@ export async function GET() {
         filePath: true,
         fileType: true,
         fileSize: true,
+        folderId: true,
+        folder: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -30,6 +48,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const folderId = formData.get("folderId") as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -49,6 +68,20 @@ export async function POST(request: NextRequest) {
         fileType: file.type || "application/octet-stream",
         fileSize: file.size,
         fileData: base64Data,
+        folderId: folderId && folderId !== "root" && folderId !== "null" ? folderId : null,
+      },
+      select: {
+        id: true,
+        name: true,
+        filePath: true,
+        fileType: true,
+        fileSize: true,
+        folderId: true,
+        folder: {
+          select: { id: true, name: true },
+        },
+        createdAt: true,
+        updatedAt: true,
       },
     });
 

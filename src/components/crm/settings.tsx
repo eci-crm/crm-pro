@@ -61,6 +61,10 @@ import {
   Plus,
   Tag,
   Check,
+  DatabaseBackup,
+  Download,
+  AlertTriangle,
+  Loader2,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -1131,6 +1135,241 @@ function ThematicAreasTab() {
   )
 }
 
+// ── Backup & Restore Tab ────────────────────────────────────────────────────
+
+function BackupRestoreTab() {
+  const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importWarning, setImportWarning] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const res = await fetch('/api/backup')
+      if (!res.ok) throw new Error('Failed to create backup')
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `crm-backup-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success('Backup created and downloaded successfully')
+    } catch {
+      toast.error('Failed to create backup')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a backup file first')
+      return
+    }
+
+    setImportWarning(false)
+    setIsImporting(true)
+    try {
+      const text = await selectedFile.text()
+      const data = JSON.parse(text)
+
+      if (!data.version || !data.data) {
+        toast.error('Invalid backup file format')
+        return
+      }
+
+      const res = await fetch('/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Import failed')
+      }
+
+      const result = await res.json()
+
+      toast.success(
+        `Backup imported successfully! ${result.stats.clients} clients, ${result.stats.proposals} proposals, ${result.stats.resources} resources restored.`
+      )
+      setSelectedFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to import backup')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">Backup & Restore</h3>
+        <p className="text-sm text-muted-foreground">
+          Create a backup of all your CRM data or restore from a previous backup.
+        </p>
+      </div>
+
+      {/* Export Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5 text-primary" />
+            Export Backup
+          </CardTitle>
+          <CardDescription>
+            Download a complete backup of all your CRM data including clients, proposals,
+            team members, thematic areas, resources, and settings. The backup will be saved as a JSON file.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleExport} disabled={isExporting} size="lg">
+            {isExporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Backup...
+              </>
+            ) : (
+              <>
+                <DatabaseBackup className="mr-2 h-4 w-4" />
+                Create & Download Backup
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Import Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-600">
+            <AlertTriangle className="h-5 w-5" />
+            Restore from Backup
+          </CardTitle>
+          <CardDescription>
+            Import a previously created backup file. This will <strong>add</strong> all data from the backup to your existing database.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 hover:border-primary/40 hover:bg-accent/30 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click()
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {selectedFile ? (
+              <div className="text-center">
+                <FileText className="h-8 w-8 text-primary mx-auto mb-2" />
+                <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(selectedFile.size / 1024).toFixed(1)} KB
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedFile(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm font-medium">Click to select a backup file</p>
+                <p className="text-xs text-muted-foreground">Only .json files from CRM Pro backups</p>
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={() => setImportWarning(true)}
+            disabled={!selectedFile || isImporting}
+            variant="outline"
+            size="lg"
+            className="border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Restore Backup
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Warning Dialog */}
+      <AlertDialog open={importWarning} onOpenChange={setImportWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Confirm Restore
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will add all data from the backup file <strong>{selectedFile?.name}</strong> to your current database.
+              Duplicate entries may be created. Make sure you have exported a current backup before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isImporting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleImport}
+              disabled={isImporting}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                'Yes, Restore Backup'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
 // ── Main Settings Page ─────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1142,11 +1381,12 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="company" className="space-y-6">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto flex-wrap">
           <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="team">Team Members</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="areas">Areas</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
-          <TabsTrigger value="areas">Thematic Areas</TabsTrigger>
+          <TabsTrigger value="backup">Backup</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -1157,12 +1397,16 @@ export default function SettingsPage() {
           <TeamMembersTab />
         </TabsContent>
 
+        <TabsContent value="areas">
+          <ThematicAreasTab />
+        </TabsContent>
+
         <TabsContent value="sections">
           <SectionCustomizationTab />
         </TabsContent>
 
-        <TabsContent value="areas">
-          <ThematicAreasTab />
+        <TabsContent value="backup">
+          <BackupRestoreTab />
         </TabsContent>
       </Tabs>
     </div>

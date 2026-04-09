@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || "";
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
+    const thematicAreaId = searchParams.get("thematicAreaId") || "";
 
     // Build date filter for proposals
     const buildProposalDateFilter = (): Prisma.ProposalWhereInput => {
@@ -142,6 +143,104 @@ export async function GET(request: NextRequest) {
           byClient: clientGroups,
         },
         data: proposals,
+      });
+    }
+
+    if (type === "thematic") {
+      // Thematic Area report
+      const proposalWhere: Prisma.ProposalWhereInput = {};
+
+      if (clientId) {
+        proposalWhere.clientId = clientId;
+      }
+      if (status) {
+        proposalWhere.status = status;
+      }
+      if (startDate || endDate) {
+        const deadlineFilter: Prisma.DateTimeNullableFilter<"Proposal"> = {};
+        if (startDate) deadlineFilter.gte = new Date(startDate);
+        if (endDate) deadlineFilter.lte = new Date(endDate);
+        proposalWhere.deadline = deadlineFilter;
+      }
+      if (thematicAreaId) {
+        proposalWhere.thematicAreas = {
+          some: { thematicAreaId },
+        };
+      }
+
+      // Get all thematic areas
+      const areas = await db.thematicArea.findMany({
+        orderBy: { sortOrder: "asc" },
+        include: {
+          proposals: {
+            where: Object.keys(proposalWhere).length > 0 ? proposalWhere : undefined,
+            include: {
+              client: { select: { id: true, name: true } },
+              assignedMember: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+
+      // Build summary by thematic area
+      const byArea: Record<string, { count: number; totalValue: number; wonCount: number; wonValue: number; areaName: string; areaColor: string }> = {};
+      const allProposals: Array<{
+        id: string;
+        name: string;
+        rfpNumber: string;
+        value: number;
+        status: string;
+        deadline: string | null;
+        client: { id: string; name: string };
+        assignedMember: { id: string; name: string } | null;
+        thematicAreas: Array<{ thematicArea: { id: string; name: string; color: string } }>;
+      }> = [];
+
+      for (const area of areas) {
+        byArea[area.id] = {
+          count: area.proposals.length,
+          totalValue: area.proposals.reduce((s, p) => s + p.value, 0),
+          wonCount: area.proposals.filter((p) => p.status === "Won").length,
+          wonValue: area.proposals.filter((p) => p.status === "Won").reduce((s, p) => s + p.value, 0),
+          areaName: area.name,
+          areaColor: area.color,
+        };
+
+        for (const proposal of area.proposals) {
+          // Avoid duplicates if a proposal has multiple thematic areas
+          if (!allProposals.find((p) => p.id === proposal.id)) {
+            allProposals.push(proposal as typeof allProposals[number]);
+          }
+        }
+      }
+
+      const totalProposals = allProposals.length;
+      const totalValue = allProposals.reduce((s, p) => s + p.value, 0);
+      const totalWon = allProposals.filter((p) => p.status === "Won").length;
+      const wonValue = allProposals.filter((p) => p.status === "Won").reduce((s, p) => s + p.value, 0);
+
+      return NextResponse.json({
+        type: "thematic",
+        totalRecords: totalProposals,
+        summary: {
+          totalAreas: areas.length,
+          totalProposals,
+          totalValue,
+          totalWon,
+          wonValue,
+          winRate: totalProposals > 0 ? ((totalWon / totalProposals) * 100).toFixed(1) : "0",
+          byArea,
+        },
+        data: {
+          areas: areas.map((a) => ({
+            id: a.id,
+            name: a.name,
+            color: a.color,
+            proposalCount: a.proposals.length,
+            totalValue: a.proposals.reduce((s, p) => s + p.value, 0),
+          })),
+          proposals: allProposals,
+        },
       });
     }
 

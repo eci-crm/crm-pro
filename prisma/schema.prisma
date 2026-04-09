@@ -67,6 +67,17 @@ model ProposalThematicArea {
   @@unique([proposalId, thematicAreaId])
 }
 
+model ResourceFolder {
+  id        String    @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    ResourceFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  ResourceFolder[] @relation("FolderHierarchy")
+  resources Resource[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Resource {
   id        String   @id @default(cuid())
   name      String
@@ -74,6 +85,8 @@ model Resource {
   fileType  String   @default("")
   fileSize  Int      @default(0)
   fileData  String   @default("") // base64 encoded file content for serverless storage
+  folderId  String?
+  folder    ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
