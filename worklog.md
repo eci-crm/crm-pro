@@ -244,3 +244,33 @@ Stage Summary:
 - Thematic Area Report: New report type with pie/bar charts, breakdown table, win rate
 - Database: ResourceFolder model added, Resource.folderId added
 - 9 files changed, 1726 insertions, 360 deletions
+
+---
+Task ID: 6-remove-demo-creds
+Agent: Main
+Task: Remove demo credentials from login page, add Account tab with password change and user management to Settings
+
+Work Log:
+- Removed demo credentials section (quick-fill buttons for test accounts) from login page
+- Verified login page at src/components/login-page.tsx has clean email/password form with no demo buttons
+- Added AccountSettingsTab component to Settings page with:
+  - Current user info display (name, email, role badge)
+  - Change Password form (current password, new password, confirm password)
+  - Password visibility toggles, validation, and loading states
+  - API call to PUT /api/auth for password change
+- Added PasswordInput helper component (outside AccountSettingsTab to avoid hooks-in-component lint error)
+- Updated TeamMembersTab: create dialog now requires password (min 4 chars), edit dialog has optional Reset Password field
+- Updated Team API (POST /api/team): validates email format, checks duplicate emails, requires password
+- Updated Team API (PUT /api/team/[id]): supports optional password reset
+- Added PUT /api/auth endpoint for changing own password (verifies current password)
+- Settings page now has 6 tabs: Account, Company, Team, Areas, Sections, Backup (Account is default)
+- Fixed proposals.tsx React Compiler warning: replaced form.watch() with useWatch() hook
+- Lint passes with 0 errors, 0 warnings
+- Pushed to GitHub (commit 63ba4bb) to trigger Vercel redeploy
+
+Stage Summary:
+- Login page: Clean form, no demo credentials
+- Settings > Account: View profile, change own password
+- Settings > Team: Create members with password, edit/reset passwords, delete members
+- Admin credentials: ahmed@crmpro.com / admin123 (Admin)
+- Vercel auto-deploy should trigger from GitHub push
