@@ -218,3 +218,29 @@ Stage Summary:
 - Thematic area selection fully integrated into Proposals page at src/components/crm/proposals.tsx
 - Visual indicators (colored dots) in both desktop table and mobile card views
 - Color-coded toggle buttons in dialog with selection counter
+
+---
+Task ID: 5-new-features
+Agent: Main
+Task: Add 4 new features: backup/restore, resource folders, thematic area report, without changing existing functionality
+
+Work Log:
+- Updated Prisma schema: added ResourceFolder model with self-referencing parent/children relation, added folderId to Resource model
+- Pushed schema to Neon PostgreSQL database
+- Created /api/backup route (GET exports all data as JSON, POST imports with transaction-based ID remapping)
+- Created /api/folders route (GET lists folders by parentId, POST creates folder)
+- Created /api/folders/[id] route (PUT renames, DELETE cascading delete)
+- Updated /api/resources route (GET filters by folderId, POST supports folderId in FormData)
+- Updated /api/reports route (added 'thematic' type with full by-area breakdown, win rate stats)
+- Updated Settings page: added Backup tab with export/import, confirmation dialog, file selection
+- Updated Resources page: added folder CRUD, breadcrumb navigation, folder-aware file upload
+- Updated Reports page: added Thematic Area report type with pie chart, bar chart, breakdown table, CSV export
+- All changes pass lint (0 errors, 1 pre-existing warning)
+- Pushed to GitHub (commit 2cb2dfb)
+
+Stage Summary:
+- Backup/Restore: Settings > Backup tab (export JSON, import with confirmation)
+- Resource Folders: Create/rename/delete folders, breadcrumb navigation, upload into folders
+- Thematic Area Report: New report type with pie/bar charts, breakdown table, win rate
+- Database: ResourceFolder model added, Resource.folderId added
+- 9 files changed, 1726 insertions, 360 deletions
