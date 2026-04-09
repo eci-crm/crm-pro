@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -355,9 +355,9 @@ export default function ProposalsPage() {
   }, [teamMembers])
 
   // ── Watch values for controlled select in form ──────────────────────────
-  const watchedClientId = form.watch('clientId')
-  const watchedMemberId = form.watch('assignedMemberId')
-  const watchedStatus = form.watch('status')
+  const watchedClientId = useWatch({ control: form.control, name: 'clientId' })
+  const watchedMemberId = useWatch({ control: form.control, name: 'assignedMemberId' })
+  const watchedStatus = useWatch({ control: form.control, name: 'status' })
 
   return (
     <div className="space-y-6">
