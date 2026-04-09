@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function LoginPage() {
   const { setUser } = useCrmStore()
@@ -20,6 +21,10 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [mounted, setMounted] = useState(false)
 
+  // Branding from settings
+  const [companyName, setCompanyName] = useState('CRM Pro')
+  const [companyLogo, setCompanyLogo] = useState('')
+
   useEffect(() => {
     setMounted(true)
     // Restore saved email
@@ -28,6 +33,17 @@ export default function LoginPage() {
       setEmail(savedEmail)
       setRememberMe(true)
     }
+
+    // Fetch company branding settings
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data: Record<string, string>) => {
+        if (data.companyName) setCompanyName(data.companyName)
+        if (data.companyLogo) setCompanyLogo(data.companyLogo)
+      })
+      .catch(() => {
+        // silently ignore — use defaults
+      })
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,12 +154,22 @@ export default function LoginPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             <div className="flex items-center gap-4 mb-8">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
-                <Building2 className="h-8 w-8 text-blue-300" />
-              </div>
+              {companyLogo ? (
+                <div className="h-14 w-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 overflow-hidden p-1">
+                  <img
+                    src={companyLogo}
+                    alt={companyName}
+                    className="h-full w-full object-contain rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
+                  <Building2 className="h-8 w-8 text-blue-300" />
+                </div>
+              )}
               <div>
                 <h1 className="text-3xl font-bold text-white tracking-tight">
-                  CRM Pro
+                  {companyName}
                 </h1>
               </div>
             </div>
@@ -202,10 +228,20 @@ export default function LoginPage() {
         >
           {/* Mobile brand */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-800">
-              <Building2 className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-foreground">CRM Pro</span>
+            {companyLogo ? (
+              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 overflow-hidden p-0.5">
+                <img
+                  src={companyLogo}
+                  alt={companyName}
+                  className="h-full w-full object-contain rounded-lg"
+                />
+              </div>
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-800">
+                <Building2 className="h-6 w-6 text-white" />
+              </div>
+            )}
+            <span className="text-2xl font-bold text-foreground">{companyName}</span>
           </div>
 
           <div className="mb-8">
@@ -349,7 +385,7 @@ export default function LoginPage() {
             transition={{ duration: 0.5, delay: 0.8 }}
             className="mt-8 text-center text-xs text-muted-foreground"
           >
-            CRM Pro &copy; {new Date().getFullYear()} &middot; All rights
+            {companyName} &copy; {new Date().getFullYear()} &middot; All rights
             reserved
           </motion.p>
         </motion.div>

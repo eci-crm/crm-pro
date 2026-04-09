@@ -198,9 +198,10 @@ function CompanySettingsTab() {
   })
 
   // Track pending edits - null means use server values directly
-  const [draft, setDraft] = useState<{ tagline: string; logoUrl: string } | null>(null)
+  const [draft, setDraft] = useState<{ companyName: string; tagline: string; logoUrl: string } | null>(null)
 
   // Display values: use draft if user has started editing, otherwise server value
+  const companyName = draft?.companyName ?? settings?.companyName ?? 'CRM Pro'
   const tagline = draft?.tagline ?? settings?.companyTagline ?? ''
   const logoUrl = draft?.logoUrl ?? settings?.companyLogo ?? ''
 
@@ -218,6 +219,8 @@ function CompanySettingsTab() {
       toast.success('Settings saved successfully')
       setDraft(null) // Clear draft so server values are shown after refetch
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      // Also invalidate the branding query used by login page & CRM layout
+      queryClient.invalidateQueries({ queryKey: ['settings-branding'] })
     },
     onError: () => {
       toast.error('Failed to save settings')
@@ -236,6 +239,7 @@ function CompanySettingsTab() {
     const reader = new FileReader()
     reader.onloadend = () => {
       setDraft((prev) => ({
+        companyName: prev?.companyName ?? settings?.companyName ?? 'CRM Pro',
         tagline: prev?.tagline ?? settings?.companyTagline ?? '',
         logoUrl: reader.result as string,
       }))
@@ -245,6 +249,7 @@ function CompanySettingsTab() {
 
   const handleSave = () => {
     const settingsToSave = [
+      { key: 'companyName', value: companyName },
       { key: 'companyTagline', value: tagline },
       { key: 'companyLogo', value: logoUrl },
     ]
@@ -274,6 +279,27 @@ function CompanySettingsTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Company Name */}
+          <div className="space-y-2">
+            <Label htmlFor="company-name">Company Name</Label>
+            <Input
+              id="company-name"
+              placeholder="e.g., ECI CRM"
+              value={companyName}
+              onChange={(e) => {
+                setDraft((prev) => ({
+                  companyName: e.target.value,
+                  tagline: prev?.tagline ?? settings?.companyTagline ?? '',
+                  logoUrl: prev?.logoUrl ?? settings?.companyLogo ?? '',
+                }))
+              }}
+              className="max-w-md"
+            />
+            <p className="text-xs text-muted-foreground">
+              This name appears on the login page and sidebar.
+            </p>
+          </div>
+
           {/* Logo */}
           <div className="space-y-2">
             <Label>Company Logo</Label>
@@ -321,6 +347,7 @@ function CompanySettingsTab() {
               value={tagline}
               onChange={(e) => {
                 setDraft((prev) => ({
+                  companyName: prev?.companyName ?? settings?.companyName ?? 'CRM Pro',
                   tagline: e.target.value,
                   logoUrl: prev?.logoUrl ?? settings?.companyLogo ?? '',
                 }))
