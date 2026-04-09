@@ -342,47 +342,6 @@ export default function LoginPage() {
             </Button>
           </motion.form>
 
-          {/* Demo credentials hint */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="mt-8 rounded-lg border border-border bg-muted/30 p-4"
-          >
-            <p className="text-xs font-medium text-muted-foreground mb-2">
-              Demo Credentials
-            </p>
-            <div className="space-y-1.5">
-              {[
-                { email: 'ahmed@crmpro.com', role: 'Admin' },
-                { email: 'sara@crmpro.com', role: 'Member' },
-                { email: 'fatima@crmpro.com', role: 'Manager' },
-              ].map((cred) => (
-                <button
-                  key={cred.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(cred.email)
-                    setPassword(
-                      cred.role === 'Admin'
-                        ? 'admin123'
-                        : cred.role === 'Manager'
-                          ? 'manager123'
-                          : 'member123'
-                    )
-                    setError('')
-                  }}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-                >
-                  <span className="font-mono">{cred.email}</span>
-                  <span className="rounded bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
-                    {cred.role}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-
           {/* Footer */}
           <motion.p
             initial={{ opacity: 0 }}

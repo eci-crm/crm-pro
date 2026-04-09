@@ -65,6 +65,9 @@ import {
   Download,
   AlertTriangle,
   Loader2,
+  KeyRound,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -363,11 +366,19 @@ function TeamMembersTab() {
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState('Member')
+  const [formPassword, setFormPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [formNewPassword, setFormNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
 
   const resetForm = () => {
     setFormName('')
     setFormEmail('')
     setFormRole('Member')
+    setFormPassword('')
+    setShowPassword(false)
+    setFormNewPassword('')
+    setShowNewPassword(false)
     setEditingMember(null)
   }
 
@@ -390,7 +401,7 @@ function TeamMembersTab() {
   }
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; email: string; role: string }) => {
+    mutationFn: async (data: { name: string; email: string; role: string; password: string }) => {
       const res = await fetch('/api/team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -414,7 +425,7 @@ function TeamMembersTab() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name: string; email: string; role: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { name: string; email: string; role: string; password?: string } }) => {
       const res = await fetch(`/api/team/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -464,16 +475,33 @@ function TeamMembersTab() {
       toast.error('Name is required')
       return
     }
+    if (!editingMember && !formEmail.trim()) {
+      toast.error('Email is required')
+      return
+    }
+    if (!editingMember && formPassword.length < 4) {
+      toast.error('Password is required (minimum 4 characters)')
+      return
+    }
     if (editingMember) {
+      const updateData: { name: string; email: string; role: string; password?: string } = {
+        name: formName.trim(),
+        email: formEmail,
+        role: formRole,
+      }
+      if (formNewPassword.length >= 4) {
+        updateData.password = formNewPassword
+      }
       updateMutation.mutate({
         id: editingMember.id,
-        data: { name: formName.trim(), email: formEmail, role: formRole },
+        data: updateData,
       })
     } else {
       createMutation.mutate({
         name: formName.trim(),
         email: formEmail,
         role: formRole,
+        password: formPassword,
       })
     }
   }
@@ -595,14 +623,18 @@ function TeamMembersTab() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="member-email">Email</Label>
+              <Label htmlFor="member-email">Email *</Label>
               <Input
                 id="member-email"
                 type="email"
                 placeholder="email@company.com"
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
+                disabled={!!editingMember}
               />
+              {editingMember && (
+                <p className="text-xs text-muted-foreground">Email cannot be changed after creation</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="member-role">Role</Label>
@@ -619,6 +651,51 @@ function TeamMembersTab() {
                 </SelectContent>
               </Select>
             </div>
+            {!editingMember && (
+              <div className="space-y-2">
+                <Label htmlFor="member-password">Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="member-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Minimum 4 characters"
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+            {editingMember && (
+              <div className="space-y-2">
+                <Label htmlFor="member-new-password">Reset Password</Label>
+                <div className="relative">
+                  <Input
+                    id="member-new-password"
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="Leave empty to keep current password"
+                    value={formNewPassword}
+                    onChange={(e) => setFormNewPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">Enter a new password only if you want to change it (min 4 characters)</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
@@ -1370,6 +1447,205 @@ function BackupRestoreTab() {
   )
 }
 
+// ── Account / Change Password Tab ───────────────────────────────────────────
+
+function PasswordInput({
+  id,
+  label,
+  value,
+  onChange,
+  show,
+  onToggleShow,
+  placeholder,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  show: boolean
+  onToggleShow: () => void
+  placeholder: string
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type={show ? 'text' : 'password'}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          tabIndex={-1}
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AccountSettingsTab() {
+  const { user } = useCrmStore()
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: { userId: string; currentPassword: string; newPassword: string }) => {
+      const res = await fetch('/api/auth', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to change password')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Password changed successfully')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
+    },
+    onError: (err) => {
+      toast.error(err.message)
+    },
+  })
+
+  const handleChangePassword = () => {
+    if (!currentPassword) {
+      toast.error('Please enter your current password')
+      return
+    }
+    if (newPassword.length < 4) {
+      toast.error('New password must be at least 4 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New password and confirmation do not match')
+      return
+    }
+    if (!user) {
+      toast.error('User session not found. Please log in again.')
+      return
+    }
+
+    changePasswordMutation.mutate({
+      userId: user.id,
+      currentPassword,
+      newPassword,
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Account Info Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Account Information
+          </CardTitle>
+          <CardDescription>
+            Your current account details.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Name</p>
+              <p className="text-sm font-medium text-foreground">{user?.name || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Email</p>
+              <p className="text-sm font-medium text-foreground">{user?.email || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Role</p>
+              <Badge variant={getRoleBadgeVariant(user?.role || '')}>{user?.role || '—'}</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Change Password Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Change Password
+          </CardTitle>
+          <CardDescription>
+            Update your password to keep your account secure.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <PasswordInput
+            id="current-password"
+            label="Current Password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            show={showCurrentPassword}
+            onToggleShow={() => setShowCurrentPassword(!showCurrentPassword)}
+            placeholder="Enter your current password"
+          />
+          <PasswordInput
+            id="new-password"
+            label="New Password"
+            value={newPassword}
+            onChange={setNewPassword}
+            show={showNewPassword}
+            onToggleShow={() => setShowNewPassword(!showNewPassword)}
+            placeholder="Minimum 4 characters"
+          />
+          <PasswordInput
+            id="confirm-password"
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            show={showConfirmPassword}
+            onToggleShow={() => setShowConfirmPassword(!showConfirmPassword)}
+            placeholder="Re-enter your new password"
+          />
+          <div className="flex items-center gap-3 pt-2">
+            <Button
+              onClick={handleChangePassword}
+              disabled={changePasswordMutation.isPending}
+            >
+              {changePasswordMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Changing...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Update Password
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ── Main Settings Page ─────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1380,14 +1656,19 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
       </div>
 
-      <Tabs defaultValue="company" className="space-y-6">
+      <Tabs defaultValue="account" className="space-y-6">
         <TabsList className="w-full sm:w-auto flex-wrap">
+          <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="areas">Areas</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
           <TabsTrigger value="backup">Backup</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="account">
+          <AccountSettingsTab />
+        </TabsContent>
 
         <TabsContent value="company">
           <CompanySettingsTab />

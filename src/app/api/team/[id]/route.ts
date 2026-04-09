@@ -46,7 +46,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, email, role } = body;
+    const { name, email, role, password } = body;
 
     const existingMember = await db.teamMember.findUnique({ where: { id } });
     if (!existingMember) {
@@ -56,12 +56,26 @@ export async function PUT(
       );
     }
 
+    // Check email uniqueness if email is being changed
+    if (email && email !== existingMember.email) {
+      const emailExists = await db.teamMember.findUnique({
+        where: { email: email.trim().toLowerCase() },
+      });
+      if (emailExists) {
+        return NextResponse.json(
+          { error: "A team member with this email already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
     const member = await db.teamMember.update({
       where: { id },
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
-        ...(email !== undefined ? { email } : {}),
+        ...(email !== undefined ? { email: email.trim().toLowerCase() } : {}),
         ...(role !== undefined ? { role } : {}),
+        ...(password !== undefined && password !== "" ? { password } : {}),
       },
     });
 
