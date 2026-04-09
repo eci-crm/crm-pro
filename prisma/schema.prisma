@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  address   String   @default("")
+  status    String   @default("Active") // Active / Inactive
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  proposals Proposal[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @default("")
+  role      String   @default("Member")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  proposals Proposal[]
+}
+
+model Proposal {
+  id             String      @id @default(cuid())
+  name           String
+  rfpNumber      String      @default("")
+  clientId       String
+  client         Client      @relation(fields: [clientId], references: [id])
+  assignedMemberId String    @default("")
+  assignedMember TeamMember? @relation(fields: [assignedMemberId], references: [id])
+  value          Float       @default(0)
+  status         String      @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
+  remarks        String      @default("")
+  deadline       DateTime?
+  submissionDate DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  name      String
+  filePath  String
+  fileType  String   @default("")
+  fileSize  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id        String @id @default(cuid())
+  key       String @unique
+  value     String @default("")
+}
