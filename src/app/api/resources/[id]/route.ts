@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import fs from "fs";
-import path from "path";
 
 export async function GET(
   request: NextRequest,
@@ -19,22 +17,20 @@ export async function GET(
       );
     }
 
-    const fullPath = path.join(process.cwd(), "public", resource.filePath);
-
-    if (!fs.existsSync(fullPath)) {
+    if (!resource.fileData) {
       return NextResponse.json(
-        { error: "File not found on disk" },
+        { error: "File data not found" },
         { status: 404 }
       );
     }
 
-    const fileBuffer = fs.readFileSync(fullPath);
+    const buffer = Buffer.from(resource.fileData, "base64");
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(buffer, {
       headers: {
         "Content-Type": resource.fileType || "application/octet-stream",
         "Content-Disposition": `attachment; filename="${resource.name}"`,
-        "Content-Length": String(fileBuffer.length),
+        "Content-Length": String(buffer.length),
       },
     });
   } catch (error) {
@@ -62,13 +58,6 @@ export async function DELETE(
       );
     }
 
-    // Delete the physical file
-    const fullPath = path.join(process.cwd(), "public", resource.filePath);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-
-    // Delete the database record
     await db.resource.delete({ where: { id } });
 
     return NextResponse.json({ message: "Resource deleted successfully" });

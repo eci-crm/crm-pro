@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import fs from "fs";
-import path from "path";
 
 export async function GET() {
   try {
     const resources = await db.resource.findMany({
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        filePath: true,
+        fileType: true,
+        fileSize: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json(resources);
@@ -31,29 +38,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Generate a unique filename to avoid collisions
-    const timestamp = Date.now();
-    const ext = path.extname(file.name) || "";
-    const uniqueFileName = `${timestamp}-${Math.random().toString(36).substring(2, 9)}${ext}`;
-    const filePath = path.join(uploadsDir, uniqueFileName);
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    fs.writeFileSync(filePath, buffer);
+    const base64Data = buffer.toString("base64");
 
     const resource = await db.resource.create({
       data: {
         name: file.name,
-        filePath: `/uploads/${uniqueFileName}`,
-        fileType: file.type || ext || "application/octet-stream",
+        filePath: file.name,
+        fileType: file.type || "application/octet-stream",
         fileSize: file.size,
+        fileData: base64Data,
       },
     });
 

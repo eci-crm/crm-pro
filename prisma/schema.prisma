@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -47,9 +47,10 @@ model Proposal {
 model Resource {
   id        String   @id @default(cuid())
   name      String
-  filePath  String
+  filePath  String   @default("")
   fileType  String   @default("")
   fileSize  Int      @default(0)
+  fileData  String   @default("") // base64 encoded file content for serverless storage
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
