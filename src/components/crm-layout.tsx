@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -44,6 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useQuery } from '@tanstack/react-query'
 
 interface NavItem {
   id: string
@@ -83,6 +84,16 @@ function getRoleBadgeColor(role: string): string {
     default:
       return 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300'
   }
+}
+
+function BrandLogo({ logoUrl, name, size = 'sm' }: { logoUrl: string; name: string; size?: 'sm' | 'md' }) {
+  const sizeClasses = size === 'sm' ? 'h-9 w-9 p-1' : 'h-14 w-14 p-1'
+  if (!logoUrl) return null
+  return (
+    <div className={cn('shrink-0 overflow-hidden rounded-lg bg-sidebar-primary', sizeClasses)}>
+      <img src={logoUrl} alt={name} className="h-full w-full object-contain" />
+    </div>
+  )
 }
 
 function SidebarNavContent({
@@ -152,6 +163,20 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
   // On mobile, always start collapsed
   const isCollapsed = !isMobile && !sidebarOpen
 
+  // Fetch company branding settings
+  const { data: settings } = useQuery<Record<string, string>>({
+    queryKey: ['settings-branding'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings')
+      if (!res.ok) throw new Error('Failed to fetch settings')
+      return res.json()
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  const companyName = settings?.companyName || 'CRM Pro'
+  const companyLogo = settings?.companyLogo || ''
+
   const handleLogout = () => {
     setUser(null)
     toast.success('You have been signed out')
@@ -175,18 +200,22 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
         >
           {/* Brand */}
           <div className="flex h-16 items-center gap-3 px-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-              <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-            </div>
+            {companyLogo ? (
+              <BrandLogo logoUrl={companyLogo} name={companyName} size="sm" />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+                <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
+              </div>
+            )}
             {!isCollapsed && (
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="text-lg font-bold text-sidebar-foreground"
+                className="text-lg font-bold text-sidebar-foreground truncate"
               >
-                CRM Pro
+                {companyName}
               </motion.span>
             )}
           </div>
@@ -238,11 +267,15 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
           </SheetTrigger>
           <SheetContent side="left" className="w-[280px] bg-sidebar p-0">
             <SheetHeader className="flex h-16 flex-row items-center gap-3 px-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-                <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-              </div>
-              <SheetTitle className="text-lg font-bold text-sidebar-foreground">
-                CRM Pro
+              {companyLogo ? (
+                <BrandLogo logoUrl={companyLogo} name={companyName} size="sm" />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+                  <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
+                </div>
+              )}
+              <SheetTitle className="text-lg font-bold text-sidebar-foreground truncate">
+                {companyName}
               </SheetTitle>
             </SheetHeader>
             <Separator className="bg-sidebar-border" />
@@ -262,7 +295,12 @@ export default function CrmLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-6 shadow-sm">
-          <div className={cn('flex items-center', isMobile && 'pl-12')}>
+          <div className={cn('flex items-center gap-3', isMobile && 'pl-12')}>
+            {companyLogo && (
+              <div className="hidden sm:block h-8 w-8 overflow-hidden rounded-md p-0.5">
+                <img src={companyLogo} alt={companyName} className="h-full w-full object-contain" />
+              </div>
+            )}
             <h2 className="text-lg font-semibold text-foreground capitalize">
               {currentPage}
             </h2>
