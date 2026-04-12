@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -53,6 +54,15 @@ export async function POST(request: NextRequest) {
         color: color || "#3b82f6",
         sortOrder: (maxSort?.sortOrder ?? 0) + 1,
       },
+    });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'CREATE',
+      entityType: 'ThematicArea',
+      entityId: area.id,
+      entityName: area.name,
+      details: `Created thematic area: ${area.name}`,
     });
 
     return NextResponse.json(area, { status: 201 });

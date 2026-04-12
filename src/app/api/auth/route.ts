@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { logAuditFromRequest } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +9,11 @@ export async function POST(request: NextRequest) {
 
     // POST /api/auth/logout
     if (action === 'logout') {
+      logAuditFromRequest(request, {
+        action: 'LOGOUT',
+        entityType: 'TeamMember',
+        details: 'User logged out',
+      })
       return NextResponse.json({ success: true })
     }
 
@@ -45,6 +51,18 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    // Audit log for login
+    logAuditFromRequest(request, {
+      action: 'LOGIN',
+      entityType: 'TeamMember',
+      entityId: member.id,
+      entityName: member.name,
+      details: `User logged in: ${member.name} (${member.email})`,
+      userName: member.name,
+      userRole: member.role,
+      userId: member.id,
+    })
 
     return NextResponse.json({
       success: true,

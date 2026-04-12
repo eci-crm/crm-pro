@@ -68,6 +68,7 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Shield,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -112,6 +113,7 @@ const CRM_SECTIONS: CrmSection[] = [
   { id: 'calendar', name: 'Calendar', icon: CalendarDays },
   { id: 'resources', name: 'Resources', icon: FolderOpen },
   { id: 'reports', name: 'Reports', icon: BarChart3 },
+  { id: 'audit', name: 'Audit Trail', icon: Shield },
   { id: 'settings', name: 'Settings', icon: Settings },
 ]
 

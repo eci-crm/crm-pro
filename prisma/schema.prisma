@@ -102,3 +102,22 @@ model Setting {
   key       String @unique
   value     String @default("")
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, IMPORT, EXPORT
+  entityType String  // Proposal, Client, TeamMember, Setting, ThematicArea, Resource
+  entityId   String   @default("")
+  entityName String   @default("")
+  details    String   @default("")
+  userId     String   @default("")
+  userName   String   @default("")
+  userRole   String   @default("")
+  userAgent  String   @default("")
+  ipAddress  String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}

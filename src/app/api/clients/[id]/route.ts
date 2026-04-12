@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -65,6 +66,15 @@ export async function PUT(
       },
     });
 
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'UPDATE',
+      entityType: 'Client',
+      entityId: client.id,
+      entityName: client.name,
+      details: `Updated client: ${client.name} (Status: ${existingClient.status} → ${client.status || existingClient.status})`,
+    });
+
     return NextResponse.json(client);
   } catch (error) {
     console.error("Error updating client:", error);
@@ -91,6 +101,15 @@ export async function DELETE(
     }
 
     await db.client.delete({ where: { id } });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'DELETE',
+      entityType: 'Client',
+      entityId: id,
+      entityName: existingClient.name,
+      details: `Deleted client: ${existingClient.name}`,
+    });
 
     return NextResponse.json({ message: "Client deleted successfully" });
   } catch (error) {

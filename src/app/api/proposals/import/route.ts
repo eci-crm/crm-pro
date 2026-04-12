@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -182,6 +183,13 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'IMPORT',
+      entityType: 'Proposal',
+      details: `Imported ${created} proposal(s) from Excel file (${file.name}), ${skipped} skipped, ${errors.length} error(s)`,
+    });
 
     return NextResponse.json({
       success: true,

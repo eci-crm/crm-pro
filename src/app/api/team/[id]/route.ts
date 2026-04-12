@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -79,6 +80,15 @@ export async function PUT(
       },
     });
 
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'UPDATE',
+      entityType: 'TeamMember',
+      entityId: member.id,
+      entityName: member.name,
+      details: `Updated team member: ${member.name} (Role: ${existingMember.role} → ${member.role || existingMember.role})`,
+    });
+
     return NextResponse.json(member);
   } catch (error) {
     console.error("Error updating team member:", error);
@@ -111,6 +121,15 @@ export async function DELETE(
     });
 
     await db.teamMember.delete({ where: { id } });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'DELETE',
+      entityType: 'TeamMember',
+      entityId: id,
+      entityName: existingMember.name,
+      details: `Deleted team member: ${existingMember.name} (${existingMember.email})`,
+    });
 
     return NextResponse.json({
       message: "Team member deleted successfully",

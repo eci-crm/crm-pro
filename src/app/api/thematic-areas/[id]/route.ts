@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function PUT(
   request: NextRequest,
@@ -49,6 +50,15 @@ export async function PUT(
       },
     });
 
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'UPDATE',
+      entityType: 'ThematicArea',
+      entityId: area.id,
+      entityName: area.name,
+      details: `Updated thematic area: ${area.name}`,
+    });
+
     return NextResponse.json(area);
   } catch (error) {
     console.error("Error updating thematic area:", error);
@@ -75,6 +85,15 @@ export async function DELETE(
     }
 
     await db.thematicArea.delete({ where: { id } });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'DELETE',
+      entityType: 'ThematicArea',
+      entityId: id,
+      entityName: existing.name,
+      details: `Deleted thematic area: ${existing.name}`,
+    });
 
     return NextResponse.json({ message: "Thematic area deleted successfully" });
   } catch (error) {

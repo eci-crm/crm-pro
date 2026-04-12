@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -169,6 +170,15 @@ export async function PUT(
       },
     });
 
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'UPDATE',
+      entityType: 'Proposal',
+      entityId: proposal.id,
+      entityName: proposal.name,
+      details: `Updated proposal: ${proposal.name} (Status: ${existingProposal.status} → ${proposal.status || existingProposal.status})`,
+    });
+
     return NextResponse.json(proposal);
   } catch (error) {
     console.error("Error updating proposal:", error);
@@ -195,6 +205,15 @@ export async function DELETE(
     }
 
     await db.proposal.delete({ where: { id } });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'DELETE',
+      entityType: 'Proposal',
+      entityId: id,
+      entityName: existingProposal.name,
+      details: `Deleted proposal: ${existingProposal.name}`,
+    });
 
     return NextResponse.json({ message: "Proposal deleted successfully" });
   } catch (error) {

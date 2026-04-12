@@ -9,6 +9,7 @@ import {
   CalendarDays,
   FolderOpen,
   BarChart3,
+  Shield,
   Settings,
   Menu,
   ChevronLeft,
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'resources', label: 'Resources', icon: FolderOpen },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
+  { id: 'audit', label: 'Audit Trail', icon: Shield },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

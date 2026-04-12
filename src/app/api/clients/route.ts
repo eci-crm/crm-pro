@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
         address: address || "",
         status: status || "Active",
       },
+    });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'CREATE',
+      entityType: 'Client',
+      entityId: client.id,
+      entityName: client.name,
+      details: `Created client: ${client.name} (${client.status})`,
     });
 
     return NextResponse.json(client, { status: 201 });

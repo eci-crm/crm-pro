@@ -9,6 +9,7 @@ import ProposalsPage from '@/components/crm/proposals'
 import CalendarPage from '@/components/crm/calendar'
 import ResourcesPage from '@/components/crm/resources'
 import ReportsPage from '@/components/crm/reports'
+import AuditTrailPage from '@/components/crm/audit'
 import SettingsPage from '@/components/crm/settings'
 
 const pageComponents: Record<string, React.ComponentType> = {
@@ -18,6 +19,7 @@ const pageComponents: Record<string, React.ComponentType> = {
   calendar: CalendarPage,
   resources: ResourcesPage,
   reports: ReportsPage,
+  audit: AuditTrailPage,
   settings: SettingsPage,
 }
 

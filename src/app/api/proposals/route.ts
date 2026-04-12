@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { logAuditFromRequest } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   try {
@@ -190,6 +191,15 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Audit log (fire-and-forget)
+    logAuditFromRequest(request, {
+      action: 'CREATE',
+      entityType: 'Proposal',
+      entityId: proposal.id,
+      entityName: proposal.name,
+      details: `Created proposal: ${proposal.name} (RFP: ${proposal.rfpNumber || 'N/A'}, Client ID: ${clientId}, Value: PKR ${value.toLocaleString()})`,
     });
 
     return NextResponse.json(proposal, { status: 201 });
