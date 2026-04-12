@@ -15,7 +15,7 @@ export async function GET() {
 
     // Proposals by status - sequential to avoid connection pool exhaustion
     const statuses = ["Submitted", "In Process", "In Evaluation", "Pending", "Won"];
-    const proposalsByStatus = [];
+    const proposalsByStatus: Array<{ status: string; count: number; totalValue: number }> = [];
     for (const status of statuses) {
       const count = await db.proposal.count({ where: { status } });
       const statusValue = await db.proposal.aggregate({
