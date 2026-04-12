@@ -15,6 +15,9 @@ export async function GET(
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
         },
+        linkedProposal: {
+          select: { id: true, name: true },
+        },
         thematicAreas: {
           include: {
             thematicArea: true,
@@ -54,6 +57,10 @@ export async function PUT(
       assignedMemberId,
       value,
       status,
+      winningChances,
+      focalPerson,
+      followupDate,
+      linkedProposalId,
       remarks,
       deadline,
       submissionDate,
@@ -91,6 +98,18 @@ export async function PUT(
       }
     }
 
+    if (linkedProposalId) {
+      const linkedExists = await db.proposal.findUnique({
+        where: { id: linkedProposalId },
+      });
+      if (!linkedExists) {
+        return NextResponse.json(
+          { error: "Linked proposal not found" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { thematicAreaIds } = body;
 
     // Handle thematic area updates in a transaction
@@ -116,6 +135,14 @@ export async function PUT(
         ...(assignedMemberId !== undefined ? { assignedMemberId } : {}),
         ...(value !== undefined ? { value } : {}),
         ...(status !== undefined ? { status } : {}),
+        ...(winningChances !== undefined ? { winningChances } : {}),
+        ...(focalPerson !== undefined ? { focalPerson } : {}),
+        ...(followupDate !== undefined
+          ? { followupDate: followupDate ? new Date(followupDate) : null }
+          : {}),
+        ...(linkedProposalId !== undefined
+          ? { linkedProposalId: linkedProposalId || null }
+          : {}),
         ...(remarks !== undefined ? { remarks } : {}),
         ...(deadline !== undefined
           ? { deadline: deadline ? new Date(deadline) : null }
@@ -130,6 +157,9 @@ export async function PUT(
         },
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        linkedProposal: {
+          select: { id: true, name: true },
         },
         thematicAreas: {
           include: {

@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
     const search = searchParams.get("search") || "";
+    const winningChances = searchParams.get("winningChances") || "";
 
     const where: Record<string, unknown> = {};
 
@@ -24,6 +25,10 @@ export async function GET(request: NextRequest) {
 
     if (assignedMemberId) {
       where.assignedMemberId = assignedMemberId;
+    }
+
+    if (winningChances) {
+      where.winningChances = winningChances;
     }
 
     if (startDate || endDate) {
@@ -42,6 +47,7 @@ export async function GET(request: NextRequest) {
         { name: { contains: search } },
         { rfpNumber: { contains: search } },
         { remarks: { contains: search } },
+        { focalPerson: { contains: search } },
       ];
     }
 
@@ -54,6 +60,9 @@ export async function GET(request: NextRequest) {
         },
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        linkedProposal: {
+          select: { id: true, name: true },
         },
         thematicAreas: {
           include: {
@@ -83,6 +92,10 @@ export async function POST(request: NextRequest) {
       assignedMemberId,
       value,
       status,
+      winningChances,
+      focalPerson,
+      followupDate,
+      linkedProposalId,
       remarks,
       deadline,
       submissionDate,
@@ -124,6 +137,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (linkedProposalId) {
+      const linkedExists = await db.proposal.findUnique({
+        where: { id: linkedProposalId },
+      });
+      if (!linkedExists) {
+        return NextResponse.json(
+          { error: "Linked proposal not found" },
+          { status: 400 }
+        );
+      }
+    }
+
     const { thematicAreaIds } = body;
 
     const proposal = await db.proposal.create({
@@ -134,6 +159,10 @@ export async function POST(request: NextRequest) {
         assignedMemberId: assignedMemberId || "",
         value: value || 0,
         status: status || "In Process",
+        winningChances: winningChances || "",
+        focalPerson: focalPerson || "",
+        followupDate: followupDate ? new Date(followupDate) : null,
+        linkedProposalId: linkedProposalId || null,
         remarks: remarks || "",
         deadline: deadline ? new Date(deadline) : null,
         submissionDate: submissionDate ? new Date(submissionDate) : null,
@@ -151,6 +180,9 @@ export async function POST(request: NextRequest) {
         },
         assignedMember: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        linkedProposal: {
+          select: { id: true, name: true },
         },
         thematicAreas: {
           include: {

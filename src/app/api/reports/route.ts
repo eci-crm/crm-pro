@@ -11,9 +11,10 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate") || "";
     const endDate = searchParams.get("endDate") || "";
     const thematicAreaId = searchParams.get("thematicAreaId") || "";
+    const winningChances = searchParams.get("winningChances") || "";
 
-    // Build date filter for proposals
-    const buildProposalDateFilter = (): Prisma.ProposalWhereInput => {
+    // Build proposal where filter with winning chances support
+    const buildProposalWhere = (): Prisma.ProposalWhereInput => {
       const filter: Prisma.ProposalWhereInput = {};
 
       if (clientId) {
@@ -22,6 +23,10 @@ export async function GET(request: NextRequest) {
 
       if (status) {
         filter.status = status;
+      }
+
+      if (winningChances) {
+        filter.winningChances = winningChances;
       }
 
       if (startDate || endDate) {
@@ -61,6 +66,9 @@ export async function GET(request: NextRequest) {
               name: true,
               status: true,
               value: true,
+              winningChances: true,
+              focalPerson: true,
+              followupDate: true,
             },
           },
         },
@@ -91,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     if (type === "proposals") {
       // Proposals report
-      const proposalWhere = buildProposalDateFilter();
+      const proposalWhere = buildProposalWhere();
 
       const proposals = await db.proposal.findMany({
         where: Object.keys(proposalWhere).length > 0 ? proposalWhere : undefined,
@@ -133,6 +141,17 @@ export async function GET(request: NextRequest) {
         clientGroups[proposal.clientId].totalValue += proposal.value;
       }
 
+      // Group by winning chances
+      const winningGroups: Record<string, { count: number; totalValue: number }> = {};
+      for (const proposal of proposals) {
+        const wc = proposal.winningChances || "Not Set";
+        if (!winningGroups[wc]) {
+          winningGroups[wc] = { count: 0, totalValue: 0 };
+        }
+        winningGroups[wc].count += 1;
+        winningGroups[wc].totalValue += proposal.value;
+      }
+
       return NextResponse.json({
         type: "proposals",
         totalRecords: totalProposals,
@@ -141,6 +160,7 @@ export async function GET(request: NextRequest) {
           totalValue,
           byStatus: statusGroups,
           byClient: clientGroups,
+          byWinningChances: winningGroups,
         },
         data: proposals,
       });
@@ -155,6 +175,9 @@ export async function GET(request: NextRequest) {
       }
       if (status) {
         proposalWhere.status = status;
+      }
+      if (winningChances) {
+        proposalWhere.winningChances = winningChances;
       }
       if (startDate || endDate) {
         const deadlineFilter: Prisma.DateTimeNullableFilter<"Proposal"> = {};
@@ -190,10 +213,12 @@ export async function GET(request: NextRequest) {
         rfpNumber: string;
         value: number;
         status: string;
+        winningChances: string;
+        focalPerson: string;
+        followupDate: string | null;
         deadline: string | null;
         client: { id: string; name: string };
         assignedMember: { id: string; name: string } | null;
-        thematicAreas: Array<{ thematicArea: { id: string; name: string; color: string } }>;
       }> = [];
 
       for (const area of areas) {
@@ -207,7 +232,6 @@ export async function GET(request: NextRequest) {
         };
 
         for (const proposal of area.proposals) {
-          // Avoid duplicates if a proposal has multiple thematic areas
           if (!allProposals.find((p) => p.id === proposal.id)) {
             allProposals.push(proposal as typeof allProposals[number]);
           }
@@ -251,7 +275,7 @@ export async function GET(request: NextRequest) {
     });
     const totalProposals = await db.proposal.count();
 
-    const proposalWhere = buildProposalDateFilter();
+    const proposalWhere = buildProposalWhere();
     const filteredProposals = await db.proposal.findMany({
       where: Object.keys(proposalWhere).length > 0 ? proposalWhere : undefined,
       include: {
@@ -279,6 +303,17 @@ export async function GET(request: NextRequest) {
       statusGroups[proposal.status].totalValue += proposal.value;
     }
 
+    // Winning chances groups for summary
+    const winningGroups: Record<string, { count: number; totalValue: number }> = {};
+    for (const proposal of filteredProposals) {
+      const wc = proposal.winningChances || "Not Set";
+      if (!winningGroups[wc]) {
+        winningGroups[wc] = { count: 0, totalValue: 0 };
+      }
+      winningGroups[wc].count += 1;
+      winningGroups[wc].totalValue += proposal.value;
+    }
+
     return NextResponse.json({
       type: "summary",
       totalRecords: filteredProposals.length,
@@ -292,6 +327,7 @@ export async function GET(request: NextRequest) {
           filtered: filteredProposals.length,
           totalFilteredValue,
           byStatus: statusGroups,
+          byWinningChances: winningGroups,
         },
       },
       data: filteredProposals,

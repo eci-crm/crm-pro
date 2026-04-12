@@ -85,6 +85,9 @@ interface ProposalReportData {
   clientId: string
   value: number
   status: string
+  winningChances: string
+  focalPerson: string
+  followupDate: string | null
   deadline: string | null
   submissionDate: string | null
   client: { id: string; name: string }
@@ -122,6 +125,7 @@ interface ProposalReportResponse {
     totalValue: number
     byStatus: Record<string, StatusGroup>
     byClient: Record<string, ClientGroup>
+    byWinningChances: Record<string, StatusGroup>
   }
   data: ProposalReportData[]
 }
@@ -136,6 +140,7 @@ interface SummaryReportResponse {
       filtered: number
       totalFilteredValue: number
       byStatus: Record<string, StatusGroup>
+      byWinningChances: Record<string, StatusGroup>
     }
   }
   data: ProposalReportData[]
@@ -234,6 +239,13 @@ const STATUS_COLORS: Record<string, string> = {
   'In Process': '#f59e0b',
   'In Evaluation': '#a855f7',
   Pending: '#f97316',
+}
+
+const WINNING_COLORS: Record<string, string> = {
+  High: '#10b981',
+  Medium: '#eab308',
+  Low: '#ef4444',
+  'Not Set': '#94a3b8',
 }
 
 function exportToCSV(data: Record<string, unknown>[], filename: string) {
@@ -368,8 +380,9 @@ function FilterPanel({
     startDate: string
     endDate: string
     thematicAreaId: string
+    winningChances: string
   }
-  onFiltersChange: (filters: { clientId: string; status: string; startDate: string; endDate: string; thematicAreaId: string }) => void
+  onFiltersChange: (filters: { clientId: string; status: string; startDate: string; endDate: string; thematicAreaId: string; winningChances: string }) => void
   onGenerate: () => void
   isGenerating: boolean
 }) {
@@ -397,6 +410,7 @@ function FilterPanel({
   const showClientFilter = reportType === 'proposals' || reportType === 'thematic'
   const showStatusFilter = reportType === 'proposals' || reportType === 'thematic'
   const showThematicFilter = reportType === 'thematic'
+  const showWinningFilter = reportType === 'proposals' || reportType === 'thematic'
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -407,7 +421,7 @@ function FilterPanel({
             <span className="text-sm font-semibold text-foreground">
               Filters
             </span>
-            {(filters.clientId || filters.status || filters.startDate || filters.endDate || filters.thematicAreaId) && (
+            {(filters.clientId || filters.status || filters.startDate || filters.endDate || filters.thematicAreaId || filters.winningChances) && (
               <Badge variant="secondary" className="text-xs">
                 Active
               </Badge>
@@ -501,6 +515,43 @@ function FilterPanel({
                 </div>
               )}
 
+              {showWinningFilter && (
+                <div className="space-y-2">
+                  <Label htmlFor="filter-winning">Winning Chances</Label>
+                  <Select
+                    value={filters.winningChances}
+                    onValueChange={(v) =>
+                      onFiltersChange({ ...filters, winningChances: v })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Chances" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Chances</SelectItem>
+                      <SelectItem value="High">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                          High
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Medium">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+                          Medium
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Low">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                          Low
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="filter-start">Start Date</Label>
                 <Input
@@ -540,6 +591,7 @@ function FilterPanel({
                     startDate: '',
                     endDate: '',
                     thematicAreaId: '',
+                    winningChances: '',
                   })
                 }
               >
@@ -656,6 +708,9 @@ function ClientReportView({ data }: { data: ClientReportResponse }) {
 // ── Proposal Report View ───────────────────────────────────────────────────
 
 function ProposalReportView({ data }: { data: ProposalReportResponse }) {
+  const byWinning = data.summary.byWinningChances || {}
+  const winningEntries = Object.entries(byWinning)
+
   const csvData = useMemo(() => {
     return data.data.map((p) => ({
       Name: p.name,
@@ -663,7 +718,10 @@ function ProposalReportView({ data }: { data: ProposalReportResponse }) {
       Client: p.client?.name || '—',
       'Assigned To': p.assignedMember?.name || '—',
       Status: p.status,
+      'Winning Chances': p.winningChances || 'Not Set',
+      'Focal Person': p.focalPerson || '—',
       Value: p.value,
+      'Follow-up': p.followupDate ? formatDate(p.followupDate) : '—',
       Deadline: p.deadline ? formatDate(p.deadline) : '—',
       'Submission Date': p.submissionDate ? formatDate(p.submissionDate) : '—',
     }))
@@ -715,6 +773,7 @@ function ProposalReportView({ data }: { data: ProposalReportResponse }) {
                   <TableHead>Proposal</TableHead>
                   <TableHead className="hidden md:table-cell">Client</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Winning</TableHead>
                   <TableHead className="text-right">Value</TableHead>
                   <TableHead className="hidden lg:table-cell text-right">Deadline</TableHead>
                 </TableRow>
@@ -732,6 +791,13 @@ function ProposalReportView({ data }: { data: ProposalReportResponse }) {
                     <TableCell>
                       <Badge variant="outline" className={getStatusColor(proposal.status)}>{proposal.status}</Badge>
                     </TableCell>
+                    <TableCell>
+                      {proposal.winningChances ? (
+                        <Badge variant="outline" className={cn('text-xs', getStatusColor(proposal.winningChances === 'High' ? 'Active' : proposal.winningChances === 'Medium' ? 'In Process' : proposal.winningChances === 'Low' ? 'Pending' : 'Inactive'))}>
+                          {proposal.winningChances}
+                        </Badge>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(proposal.value)}</TableCell>
                     <TableCell className="hidden lg:table-cell text-right text-muted-foreground">{formatDate(proposal.deadline)}</TableCell>
                   </TableRow>
@@ -739,7 +805,7 @@ function ProposalReportView({ data }: { data: ProposalReportResponse }) {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={3} className="font-semibold">Total</TableCell>
+                  <TableCell colSpan={4} className="font-semibold">Total</TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(data.summary.totalValue)}</TableCell>
                   <TableCell />
                 </TableRow>
@@ -1277,6 +1343,7 @@ export default function ReportsPage() {
     startDate: '',
     endDate: '',
     thematicAreaId: '',
+    winningChances: '',
   })
   const [generated, setGenerated] = useState(false)
 
@@ -1288,6 +1355,7 @@ export default function ReportsPage() {
     if (filters.startDate) params.set('startDate', filters.startDate)
     if (filters.endDate) params.set('endDate', filters.endDate)
     if (filters.thematicAreaId && filters.thematicAreaId !== 'all') params.set('thematicAreaId', filters.thematicAreaId)
+    if (filters.winningChances && filters.winningChances !== 'all') params.set('winningChances', filters.winningChances)
     return params.toString()
   }, [reportType, filters])
 
@@ -1315,7 +1383,7 @@ export default function ReportsPage() {
   const handleReportTypeChange = (type: ReportType) => {
     setReportType(type)
     setGenerated(false)
-    setFilters({ clientId: '', status: '', startDate: '', endDate: '', thematicAreaId: '' })
+    setFilters({ clientId: '', status: '', startDate: '', endDate: '', thematicAreaId: '', winningChances: '' })
   }
 
   return (

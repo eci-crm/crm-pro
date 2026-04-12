@@ -40,21 +40,27 @@ model ThematicArea {
 }
 
 model Proposal {
-  id               String                @id @default(cuid())
-  name             String
-  rfpNumber        String                @default("")
-  clientId         String
-  client           Client                @relation(fields: [clientId], references: [id])
-  assignedMemberId String                @default("")
-  assignedMember   TeamMember?           @relation(fields: [assignedMemberId], references: [id])
-  value            Float                 @default(0)
-  status           String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
-  remarks          String                @default("")
-  deadline         DateTime?
-  submissionDate   DateTime?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  thematicAreas    ProposalThematicArea[]
+  id                String                @id @default(cuid())
+  name              String
+  rfpNumber         String                @default("")
+  clientId          String
+  client            Client                @relation(fields: [clientId], references: [id])
+  assignedMemberId  String                @default("")
+  assignedMember    TeamMember?           @relation(fields: [assignedMemberId], references: [id])
+  value             Float                 @default(0)
+  status            String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
+  winningChances    String                @default("") // Low, Medium, High
+  focalPerson       String                @default("")
+  followupDate      DateTime?
+  linkedProposalId  String?
+  linkedProposal    Proposal?             @relation("LinkedProposals", fields: [linkedProposalId], references: [id])
+  remarks           String                @default("")
+  deadline          DateTime?
+  submissionDate    DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  thematicAreas     ProposalThematicArea[]
+  linkedFrom        Proposal[]            @relation("LinkedProposals")
 }
 
 model ProposalThematicArea {

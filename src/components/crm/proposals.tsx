@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Loader2 } from 'lucide-react'
+import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Link2, User, Target, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -82,6 +82,11 @@ interface Proposal {
   assignedMember: TeamMember | null
   value: number
   status: string
+  winningChances: string
+  focalPerson: string
+  followupDate: string | null
+  linkedProposalId: string | null
+  linkedProposal: { id: string; name: string } | null
   remarks: string
   deadline: string | null
   submissionDate: string | null
@@ -94,12 +99,26 @@ interface Proposal {
 
 const STATUS_OPTIONS = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won'] as const
 
+const WINNING_CHANCES_OPTIONS = ['High', 'Medium', 'Low'] as const
+
 const STATUS_COLORS: Record<string, string> = {
   Submitted: 'bg-blue-100 text-blue-800 border-blue-200',
   'In Process': 'bg-amber-100 text-amber-800 border-amber-200',
   'In Evaluation': 'bg-purple-100 text-purple-800 border-purple-200',
   Pending: 'bg-slate-100 text-slate-700 border-slate-200',
   Won: 'bg-green-100 text-green-800 border-green-200',
+}
+
+const WINNING_COLORS: Record<string, string> = {
+  High: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  Low: 'bg-red-100 text-red-700 border-red-200',
+}
+
+const WINNING_DOT_COLORS: Record<string, string> = {
+  High: '#10b981',
+  Medium: '#eab308',
+  Low: '#ef4444',
 }
 
 // ── Zod Schema ──────────────────────────────────────────────────────────────
@@ -111,6 +130,10 @@ const proposalSchema = z.object({
   assignedMemberId: z.string().optional().default(''),
   value: z.number().min(0).optional().default(0),
   status: z.string().optional().default('In Process'),
+  winningChances: z.string().optional().default(''),
+  focalPerson: z.string().optional().default(''),
+  followupDate: z.date().nullable().optional(),
+  linkedProposalId: z.string().optional().default(''),
   remarks: z.string().optional().default(''),
   deadline: z.date().nullable().optional(),
   submissionDate: z.date().nullable().optional(),
@@ -138,6 +161,7 @@ export default function ProposalsPage() {
   const [search, setSearch] = useState('')
   const [clientFilter, setClientFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [winningFilter, setWinningFilter] = useState('')
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
 
@@ -185,18 +209,29 @@ export default function ProposalsPage() {
     },
   })
 
+  // ── Query: Proposals (for linked proposal selector) ──────────────────
+  const { data: allProposals = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['proposals-for-link'],
+    queryFn: async () => {
+      const res = await fetch('/api/proposals')
+      if (!res.ok) return []
+      return res.json()
+    },
+  })
+
   // ── Query: Proposals ────────────────────────────────────────────────────
   const {
     data: proposals = [],
     isLoading,
     isError,
   } = useQuery<Proposal[]>({
-    queryKey: ['proposals', debouncedSearch, clientFilter, statusFilter, startDate, endDate],
+    queryKey: ['proposals', debouncedSearch, clientFilter, statusFilter, winningFilter, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (clientFilter) params.set('clientId', clientFilter)
       if (statusFilter) params.set('status', statusFilter)
+      if (winningFilter) params.set('winningChances', winningFilter)
       if (startDate) params.set('startDate', format(startDate, 'yyyy-MM-dd'))
       if (endDate) params.set('endDate', format(endDate, 'yyyy-MM-dd'))
       const res = await fetch(`/api/proposals?${params.toString()}`)
@@ -212,6 +247,8 @@ export default function ProposalsPage() {
         ...data,
         deadline: data.deadline ? format(data.deadline, 'yyyy-MM-dd') : null,
         submissionDate: data.submissionDate ? format(data.submissionDate, 'yyyy-MM-dd') : null,
+        followupDate: data.followupDate ? format(data.followupDate, 'yyyy-MM-dd') : null,
+        linkedProposalId: data.linkedProposalId || null,
         thematicAreaIds: selectedAreaIds,
       }
       if (editingProposal) {
@@ -275,6 +312,10 @@ export default function ProposalsPage() {
       assignedMemberId: '',
       value: 0,
       status: 'In Process',
+      winningChances: '',
+      focalPerson: '',
+      followupDate: null,
+      linkedProposalId: '',
       remarks: '',
       deadline: null,
       submissionDate: null,
@@ -291,6 +332,10 @@ export default function ProposalsPage() {
       assignedMemberId: '',
       value: 0,
       status: 'In Process',
+      winningChances: '',
+      focalPerson: '',
+      followupDate: null,
+      linkedProposalId: '',
       remarks: '',
       deadline: null,
       submissionDate: null,
@@ -309,6 +354,10 @@ export default function ProposalsPage() {
         assignedMemberId: proposal.assignedMemberId || '',
         value: proposal.value,
         status: proposal.status,
+        winningChances: proposal.winningChances || '',
+        focalPerson: proposal.focalPerson || '',
+        followupDate: proposal.followupDate ? new Date(proposal.followupDate) : null,
+        linkedProposalId: proposal.linkedProposalId || '',
         remarks: proposal.remarks,
         deadline: proposal.deadline ? new Date(proposal.deadline) : null,
         submissionDate: proposal.submissionDate ? new Date(proposal.submissionDate) : null,
@@ -335,29 +384,19 @@ export default function ProposalsPage() {
     setSearch('')
     setClientFilter('')
     setStatusFilter('')
+    setWinningFilter('')
     setStartDate(undefined)
     setEndDate(undefined)
   }, [])
 
-  const hasActiveFilters = search || clientFilter || statusFilter || startDate || endDate
-
-  // ── Client / Team maps for display ──────────────────────────────────────
-  const clientMap = React.useMemo(() => {
-    const map = new Map<string, string>()
-    clients.forEach((c) => map.set(c.id, c.name))
-    return map
-  }, [clients])
-
-  const teamMap = React.useMemo(() => {
-    const map = new Map<string, string>()
-    teamMembers.forEach((m) => map.set(m.id, m.name))
-    return map
-  }, [teamMembers])
+  const hasActiveFilters = search || clientFilter || statusFilter || winningFilter || startDate || endDate
 
   // ── Watch values for controlled select in form ──────────────────────────
   const watchedClientId = useWatch({ control: form.control, name: 'clientId' })
   const watchedMemberId = useWatch({ control: form.control, name: 'assignedMemberId' })
   const watchedStatus = useWatch({ control: form.control, name: 'status' })
+  const watchedWinningChances = useWatch({ control: form.control, name: 'winningChances' })
+  const watchedLinkedProposalId = useWatch({ control: form.control, name: 'linkedProposalId' })
 
   return (
     <div className="space-y-6">
@@ -391,7 +430,7 @@ export default function ProposalsPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -433,6 +472,24 @@ export default function ProposalsPage() {
               </SelectContent>
             </Select>
 
+            {/* Winning Chances Filter */}
+            <Select value={winningFilter} onValueChange={(val) => setWinningFilter(val === '__all__' ? '' : val)}>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue placeholder="All Chances" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Chances</SelectItem>
+                {WINNING_CHANCES_OPTIONS.map((w) => (
+                  <SelectItem key={w} value={w}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: WINNING_DOT_COLORS[w] }} />
+                      {w}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Date Range */}
             <div className="flex items-center gap-2">
               <Popover>
@@ -445,18 +502,13 @@ export default function ProposalsPage() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                    {startDate ? format(startDate, 'dd MMM yy') : 'Start Date'}
+                    {startDate ? format(startDate, 'dd MMM yy') : 'Start'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                  />
+                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
                 </PopoverContent>
               </Popover>
-
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -467,15 +519,11 @@ export default function ProposalsPage() {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                    {endDate ? format(endDate, 'dd MMM yy') : 'End Date'}
+                    {endDate ? format(endDate, 'dd MMM yy') : 'End'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                  />
+                  <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -540,91 +588,113 @@ export default function ProposalsPage() {
           {/* Desktop Table */}
           <Card className="border-slate-200 hidden md:block">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50">
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Proposal Name</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">RFP/Tender #</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Client</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Value (PKR)</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Deadline</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {proposals.map((proposal) => (
-                    <TableRow key={proposal.id} className="group">
-                      <TableCell className="font-medium text-slate-900 max-w-[220px]">
-                        <p className="truncate">{proposal.name}</p>
-                        {proposal.thematicAreas?.length > 0 && (
-                          <div className="mt-1 flex items-center gap-1">
-                            {proposal.thematicAreas.slice(0, 3).map((ta) => (
-                              <span
-                                key={ta.id}
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: ta.thematicArea.color }}
-                                title={ta.thematicArea.name}
-                              />
-                            ))}
-                            {proposal.thematicAreas.length > 3 && (
-                              <span className="text-[10px] text-slate-400">+{proposal.thematicAreas.length - 3}</span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-slate-600 font-mono text-xs">
-                        {proposal.rfpNumber || '—'}
-                      </TableCell>
-                      <TableCell className="text-slate-700">
-                        {proposal.client?.name || '—'}
-                      </TableCell>
-                      <TableCell className="text-slate-600">
-                        {proposal.assignedMember?.name || '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-slate-900">
-                        {formatPKR(proposal.value)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            'border text-xs font-medium px-2 py-0.5',
-                            STATUS_COLORS[proposal.status] || 'bg-slate-100 text-slate-700 border-slate-200'
-                          )}
-                        >
-                          {proposal.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-slate-600 text-sm">
-                        {formatDate(proposal.deadline)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                            onClick={() => openEditDialog(proposal)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => setDeleteTarget(proposal)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 hover:bg-slate-50">
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Proposal Name</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Client</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Winning Chances</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Value (PKR)</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Focal Person</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Follow-up</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Linked</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {proposals.map((proposal) => (
+                      <TableRow key={proposal.id} className="group">
+                        <TableCell className="font-medium text-slate-900 max-w-[200px]">
+                          <p className="truncate">{proposal.name}</p>
+                          {proposal.rfpNumber && (
+                            <p className="text-xs text-slate-400 font-mono">{proposal.rfpNumber}</p>
+                          )}
+                          {proposal.thematicAreas?.length > 0 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              {proposal.thematicAreas.slice(0, 3).map((ta) => (
+                                <span
+                                  key={ta.id}
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: ta.thematicArea.color }}
+                                  title={ta.thematicArea.name}
+                                />
+                              ))}
+                              {proposal.thematicAreas.length > 3 && (
+                                <span className="text-[10px] text-slate-400">+{proposal.thematicAreas.length - 3}</span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-slate-700">
+                          {proposal.client?.name || '—'}
+                        </TableCell>
+                        <TableCell className="text-slate-600">
+                          {proposal.assignedMember?.name || '—'}
+                        </TableCell>
+                        <TableCell>
+                          {proposal.winningChances ? (
+                            <Badge className={cn('border text-xs font-medium px-2 py-0.5', WINNING_COLORS[proposal.winningChances])}>
+                              <div className="h-1.5 w-1.5 rounded-full mr-1.5" style={{ backgroundColor: WINNING_DOT_COLORS[proposal.winningChances] }} />
+                              {proposal.winningChances}
+                            </Badge>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-slate-900">
+                          {formatPKR(proposal.value)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={cn(
+                              'border text-xs font-medium px-2 py-0.5',
+                              STATUS_COLORS[proposal.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+                            )}
+                          >
+                            {proposal.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-slate-600 text-sm">
+                          {proposal.focalPerson || '—'}
+                        </TableCell>
+                        <TableCell className="text-slate-600 text-sm">
+                          {formatDate(proposal.followupDate)}
+                        </TableCell>
+                        <TableCell>
+                          {proposal.linkedProposal ? (
+                            <span className="text-xs text-blue-600 truncate max-w-[100px] block" title={proposal.linkedProposal.name}>
+                              {proposal.linkedProposal.name}
+                            </span>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                              onClick={() => openEditDialog(proposal)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => setDeleteTarget(proposal)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -636,6 +706,9 @@ export default function ProposalsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <h3 className="font-semibold text-slate-900 truncate">{proposal.name}</h3>
+                      {proposal.rfpNumber && (
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">{proposal.rfpNumber}</p>
+                      )}
                       {proposal.thematicAreas?.length > 0 && (
                         <div className="mt-1 flex items-center gap-1">
                           {proposal.thematicAreas.slice(0, 3).map((ta) => (
@@ -651,18 +724,22 @@ export default function ProposalsPage() {
                           )}
                         </div>
                       )}
-                      {proposal.rfpNumber && (
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">{proposal.rfpNumber}</p>
-                      )}
                     </div>
-                    <Badge
-                      className={cn(
-                        'border text-xs font-medium px-2 py-0.5 shrink-0',
-                        STATUS_COLORS[proposal.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {proposal.winningChances && (
+                        <Badge className={cn('border text-[10px] font-medium px-1.5 py-0', WINNING_COLORS[proposal.winningChances])}>
+                          {proposal.winningChances}
+                        </Badge>
                       )}
-                    >
-                      {proposal.status}
-                    </Badge>
+                      <Badge
+                        className={cn(
+                          'border text-xs font-medium px-2 py-0.5',
+                          STATUS_COLORS[proposal.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+                        )}
+                      >
+                        {proposal.status}
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -679,10 +756,25 @@ export default function ProposalsPage() {
                       <span className="text-slate-800 font-medium">{formatPKR(proposal.value)}</span>
                     </div>
                     <div>
+                      <span className="text-slate-500 text-xs block">Focal Person</span>
+                      <span className="text-slate-800 font-medium">{proposal.focalPerson || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-xs block">Follow-up</span>
+                      <span className="text-slate-800 font-medium">{formatDate(proposal.followupDate)}</span>
+                    </div>
+                    <div>
                       <span className="text-slate-500 text-xs block">Deadline</span>
                       <span className="text-slate-800 font-medium">{formatDate(proposal.deadline)}</span>
                     </div>
                   </div>
+
+                  {proposal.linkedProposal && (
+                    <div className="flex items-center gap-1.5 text-xs text-blue-600">
+                      <Link2 className="h-3 w-3" />
+                      <span className="truncate">Linked: {proposal.linkedProposal.name}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                     <Button
@@ -713,7 +805,7 @@ export default function ProposalsPage() {
 
       {/* ── Add / Edit Dialog ──────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-slate-900">
               {editingProposal ? 'Edit Proposal' : 'Add New Proposal'}
@@ -755,9 +847,8 @@ export default function ProposalsPage() {
               />
             </div>
 
-            {/* Client & Assigned Member - side by side */}
+            {/* Client & Assigned Member */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Client */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-slate-700">
                   Client <span className="text-red-500">*</span>
@@ -782,7 +873,6 @@ export default function ProposalsPage() {
                 )}
               </div>
 
-              {/* Assigned Team Member */}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-slate-700">
                   Assigned Team Member
@@ -806,9 +896,8 @@ export default function ProposalsPage() {
               </div>
             </div>
 
-            {/* Value & Status - side by side */}
+            {/* Value & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Proposal Value */}
               <div className="space-y-1.5">
                 <Label htmlFor="value" className="text-sm font-medium text-slate-700">
                   Proposal Value (PKR)
@@ -824,11 +913,8 @@ export default function ProposalsPage() {
                 />
               </div>
 
-              {/* Status */}
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-slate-700">
-                  Status
-                </Label>
+                <Label className="text-sm font-medium text-slate-700">Status</Label>
                 <Select
                   value={watchedStatus || 'In Process'}
                   onValueChange={(val) => form.setValue('status', val)}
@@ -845,6 +931,74 @@ export default function ProposalsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Winning Chances & Focal Person */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Winning Chances
+                </Label>
+                <Select
+                  value={watchedWinningChances || '__none__'}
+                  onValueChange={(val) => form.setValue('winningChances', val === '__none__' ? '' : val)}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select chance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Not Set</SelectItem>
+                    {WINNING_CHANCES_OPTIONS.map((w) => (
+                      <SelectItem key={w} value={w}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: WINNING_DOT_COLORS[w] }} />
+                          {w}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="focalPerson" className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" />
+                  Focal Person
+                </Label>
+                <Input
+                  id="focalPerson"
+                  placeholder="Contact person name"
+                  {...form.register('focalPerson')}
+                  className="h-9"
+                />
+              </div>
+            </div>
+
+            {/* Linked Proposal */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5" />
+                Linked Proposal
+              </Label>
+              <Select
+                value={watchedLinkedProposalId || '__none__'}
+                onValueChange={(val) => form.setValue('linkedProposalId', val === '__none__' ? '' : val)}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select a proposal to link" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {allProposals
+                    .filter((p) => p.id !== editingProposal?.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Thematic Areas */}
@@ -871,10 +1025,7 @@ export default function ProposalsPage() {
                         color: isSelected ? area.color : '#64748b',
                       }}
                     >
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: area.color }}
-                      />
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: area.color }} />
                       {area.name}
                       {isSelected && <span className="ml-0.5">✓</span>}
                     </button>
@@ -890,9 +1041,7 @@ export default function ProposalsPage() {
 
             {/* Remarks */}
             <div className="space-y-1.5">
-              <Label htmlFor="remarks" className="text-sm font-medium text-slate-700">
-                Remarks
-              </Label>
+              <Label htmlFor="remarks" className="text-sm font-medium text-slate-700">Remarks</Label>
               <Textarea
                 id="remarks"
                 placeholder="Add any remarks or notes..."
@@ -902,13 +1051,41 @@ export default function ProposalsPage() {
               />
             </div>
 
-            {/* Deadline & Submission Date - side by side */}
+            {/* Follow-up Date & Deadline */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Deadline */}
               <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-slate-700">
-                  Deadline
+                <Label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  Follow-up Date
                 </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'h-9 w-full justify-start text-left font-normal',
+                        !form.getValues('followupDate') && 'text-slate-400'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                      {form.getValues('followupDate')
+                        ? format(new Date(form.getValues('followupDate')!), 'dd MMM yyyy')
+                        : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={form.getValues('followupDate') || undefined}
+                      onSelect={(date) => form.setValue('followupDate', date || null)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-700">Deadline</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -934,37 +1111,35 @@ export default function ProposalsPage() {
                   </PopoverContent>
                 </Popover>
               </div>
+            </div>
 
-              {/* Submission Date */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-slate-700">
-                  Submission Date
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        'h-9 w-full justify-start text-left font-normal',
-                        !form.getValues('submissionDate') && 'text-slate-400'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                      {form.getValues('submissionDate')
-                        ? format(new Date(form.getValues('submissionDate')!), 'dd MMM yyyy')
-                        : 'Pick a date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={form.getValues('submissionDate') || undefined}
-                      onSelect={(date) => form.setValue('submissionDate', date || null)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+            {/* Submission Date */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-700">Submission Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'h-9 w-full justify-start text-left font-normal',
+                      !form.getValues('submissionDate') && 'text-slate-400'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {form.getValues('submissionDate')
+                      ? format(new Date(form.getValues('submissionDate')!), 'dd MMM yyyy')
+                      : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.getValues('submissionDate') || undefined}
+                    onSelect={(date) => form.setValue('submissionDate', date || null)}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Dialog Footer */}
@@ -979,50 +1154,33 @@ export default function ProposalsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={saveMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={saveMutation.isPending}
               >
-                {saveMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : editingProposal ? (
-                  'Save Changes'
-                ) : (
-                  'Create Proposal'
-                )}
+                {saveMutation.isPending ? 'Saving...' : editingProposal ? 'Update Proposal' : 'Create Proposal'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirmation ───────────────────────────────────────── */}
+      {/* ── Delete Confirmation ──────────────────────────────────────── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-900">Delete Proposal</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-600">
-              Are you sure you want to delete &quot;{deleteTarget?.name}&quot;? This action cannot be
-              undone and will permanently remove the proposal from the system.
+            <AlertDialogTitle>Delete Proposal</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.name}&rdquo;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-slate-200">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
               disabled={deleteMutation.isPending}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
