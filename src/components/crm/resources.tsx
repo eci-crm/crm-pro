@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -216,9 +216,11 @@ export default function ResourcesPage() {
     },
   })
 
-  if (isError) {
-    toast.error('Failed to load resources')
-  }
+  useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load resources')
+    }
+  }, [isError])
 
   // Upload mutation
   const uploadMutation = useMutation({

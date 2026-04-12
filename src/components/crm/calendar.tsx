@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -17,7 +17,6 @@ import {
   isSameDay,
   parseISO,
   isAfter,
-  isBefore,
   addDays,
 } from 'date-fns'
 import {
@@ -120,9 +119,11 @@ export default function CalendarPage() {
     },
   })
 
-  if (isError) {
-    toast.error('Failed to load proposals')
-  }
+  useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load proposals')
+    }
+  }, [isError])
 
   // Build events map: proposals with deadlines
   const events = useMemo<CalendarEvent[]>(() => {

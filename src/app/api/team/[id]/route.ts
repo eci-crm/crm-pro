@@ -104,6 +104,12 @@ export async function DELETE(
       );
     }
 
+    // Unassign this member from all proposals before deleting
+    await db.proposal.updateMany({
+      where: { assignedMemberId: id },
+      data: { assignedMemberId: "" },
+    });
+
     await db.teamMember.delete({ where: { id } });
 
     return NextResponse.json({
