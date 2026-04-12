@@ -100,121 +100,121 @@ async function main() {
     {
       name: "Network Infrastructure Upgrade",
       rfpNumber: "RFP-2024-001", clientId: clients[0].id, assignedMemberId: members[0].id,
-      value: 15000000, status: "Won",
+      value: 15000000, status: "Won", winningChances: "High", focalPerson: "Imran Sheikh",
       remarks: "Upgrade nationwide fiber optic backbone for PTCL. Phase 1 approved.",
-      deadline: past15Days, submissionDate: past30Days,
+      deadline: past15Days, submissionDate: past30Days, followupDate: null,
       thematicAreas: [0, 5], // IT, Networking
     },
     {
       name: "Core Banking System Modernization",
       rfpNumber: "RFP-2024-012", clientId: clients[1].id, assignedMemberId: members[3].id,
-      value: 50000000, status: "Won",
+      value: 50000000, status: "Won", winningChances: "High", focalPerson: "Tariq Mehmood",
       remarks: "Modernize legacy core banking platform to cloud-native architecture.",
-      deadline: past5Days, submissionDate: past30Days,
+      deadline: past5Days, submissionDate: past30Days, followupDate: null,
       thematicAreas: [6, 2], // Financial, Cloud
     },
     {
       name: "SCADA System Implementation",
       rfpNumber: "TND-2024-007", clientId: clients[2].id, assignedMemberId: members[5].id,
-      value: 8500000, status: "Won",
+      value: 8500000, status: "Won", winningChances: "Medium", focalPerson: "Rashid Khan",
       remarks: "Supervisory control and data acquisition for gas pipeline monitoring.",
-      deadline: past15Days, submissionDate: past30Days,
+      deadline: past15Days, submissionDate: past30Days, followupDate: in5Days,
       thematicAreas: [7, 0], // SCADA, IT
     },
     {
       name: "ERP System Implementation",
       rfpNumber: "RFP-2024-018", clientId: clients[4].id, assignedMemberId: members[1].id,
-      value: 35000000, status: "In Process",
+      value: 35000000, status: "In Process", winningChances: "Medium", focalPerson: "Kamran Raza",
       remarks: "End-to-end ERP covering finance, HR, procurement, and asset management.",
-      deadline: in20Days, submissionDate: past15Days,
+      deadline: in20Days, submissionDate: past15Days, followupDate: in10Days,
       thematicAreas: [3, 0], // ERP, IT
     },
     {
       name: "Fleet Management Solution",
       rfpNumber: "TND-2024-022", clientId: clients[5].id, assignedMemberId: members[2].id,
-      value: 12000000, status: "In Process",
+      value: 12000000, status: "In Process", winningChances: "Low", focalPerson: "Nasir Hussain",
       remarks: "GPS-enabled fleet tracking and maintenance scheduling system.",
-      deadline: in30Days, submissionDate: past5Days,
+      deadline: in30Days, submissionDate: past5Days, followupDate: in15Days,
       thematicAreas: [10, 7], // Fleet, IoT
     },
     {
       name: "Agricultural Supply Chain Platform",
       rfpNumber: "RFP-2024-025", clientId: clients[6].id, assignedMemberId: members[4].id,
-      value: 7500000, status: "In Process",
+      value: 7500000, status: "In Process", winningChances: "Medium", focalPerson: "Zainab Malik",
       remarks: "Digital supply chain management for fertilizer and seed distribution.",
-      deadline: in15Days, submissionDate: past5Days,
+      deadline: in15Days, submissionDate: past5Days, followupDate: in2Days,
       thematicAreas: [8, 4], // Supply Chain, Data Analytics
     },
     {
       name: "Cybersecurity Audit & Compliance",
       rfpNumber: "TND-2024-030", clientId: clients[0].id, assignedMemberId: members[0].id,
-      value: 5000000, status: "In Process",
+      value: 5000000, status: "In Process", winningChances: "High", focalPerson: "Waqar Ahmed",
       remarks: "Comprehensive security audit, vulnerability assessment, and ISO 27001 compliance.",
-      deadline: in10Days, submissionDate: today,
+      deadline: in10Days, submissionDate: today, followupDate: in5Days,
       thematicAreas: [1, 0], // Cybersecurity, IT
     },
     {
       name: "Power Grid Monitoring Dashboard",
       rfpNumber: "RFP-2024-028", clientId: clients[7].id, assignedMemberId: members[5].id,
-      value: 9800000, status: "Submitted",
+      value: 9800000, status: "Submitted", winningChances: "Medium", focalPerson: "Adnan Shah",
       remarks: "Real-time power grid monitoring with predictive maintenance analytics.",
-      deadline: in45Days, submissionDate: today,
+      deadline: in45Days, submissionDate: today, followupDate: null,
       thematicAreas: [11, 4], // Power, Data Analytics
     },
     {
       name: "HR Management Portal",
       rfpNumber: "TND-2024-015", clientId: clients[1].id, assignedMemberId: members[3].id,
-      value: 4500000, status: "Submitted",
+      value: 4500000, status: "Submitted", winningChances: "Low", focalPerson: "Hina Javed",
       remarks: "Employee self-service portal with leave, payroll, and performance modules.",
-      deadline: in60Days, submissionDate: today,
+      deadline: in60Days, submissionDate: today, followupDate: in20Days,
       thematicAreas: [9, 3], // HR, ERP
     },
     {
       name: "Gas Distribution Management System",
       rfpNumber: "RFP-2024-032", clientId: clients[2].id, assignedMemberId: members[1].id,
-      value: 18500000, status: "Submitted",
+      value: 18500000, status: "Submitted", winningChances: "High", focalPerson: "Shahid Iqbal",
       remarks: "End-to-end gas distribution management including billing and leakage detection.",
-      deadline: in45Days, submissionDate: addDays(-1),
+      deadline: in45Days, submissionDate: addDays(-1), followupDate: in10Days,
       thematicAreas: [7, 2], // SCADA, Cloud
     },
     {
       name: "Customer Relationship Management Platform",
       rfpNumber: "TND-2024-019", clientId: clients[5].id, assignedMemberId: members[2].id,
-      value: 6200000, status: "In Evaluation",
+      value: 6200000, status: "In Evaluation", winningChances: "Medium", focalPerson: "Amir Bukhari",
       remarks: "Unified CRM for loyalty programs, booking support, and customer analytics.",
-      deadline: in10Days, submissionDate: past15Days,
+      deadline: in10Days, submissionDate: past15Days, followupDate: in2Days,
       thematicAreas: [4, 3], // Data Analytics, ERP
     },
     {
       name: "Steel Production Optimization Suite",
       rfpNumber: "RFP-2024-005", clientId: clients[3].id, assignedMemberId: members[4].id,
-      value: 28000000, status: "In Evaluation",
+      value: 28000000, status: "In Evaluation", winningChances: "Low", focalPerson: "Farhan Ali",
       remarks: "IoT-based production line monitoring with quality assurance dashboards.",
-      deadline: in20Days, submissionDate: past15Days,
+      deadline: in20Days, submissionDate: past15Days, followupDate: null,
       thematicAreas: [7, 4], // IoT, Data Analytics
     },
     {
       name: "Data Center Migration Strategy",
       rfpNumber: "TND-2024-035", clientId: clients[0].id, assignedMemberId: members[0].id,
-      value: 22000000, status: "Pending",
+      value: 22000000, status: "Pending", winningChances: "", focalPerson: "",
       remarks: "Migration of on-premise data centers to hybrid cloud infrastructure.",
-      deadline: in60Days, submissionDate: null,
+      deadline: in60Days, submissionDate: null, followupDate: null,
       thematicAreas: [2, 0], // Cloud, IT
     },
     {
       name: "Smart Metering Infrastructure",
       rfpNumber: "RFP-2024-040", clientId: clients[4].id, assignedMemberId: members[5].id,
-      value: 42000000, status: "Pending",
+      value: 42000000, status: "Pending", winningChances: "", focalPerson: "",
       remarks: "AMI smart meter deployment plan covering 500,000 connections in Lahore.",
-      deadline: in60Days, submissionDate: null,
+      deadline: in60Days, submissionDate: null, followupDate: null,
       thematicAreas: [7, 11], // IoT, Power
     },
     {
       name: "Disaster Recovery Planning",
       rfpNumber: "RFP-2024-042", clientId: clients[1].id, assignedMemberId: members[3].id,
-      value: 3500000, status: "Submitted",
+      value: 3500000, status: "Submitted", winningChances: "High", focalPerson: "Sana Rafiq",
       remarks: "Business continuity and disaster recovery plan for all NBP branches nationwide.",
-      deadline: in2Days, submissionDate: past15Days,
+      deadline: in2Days, submissionDate: past15Days, followupDate: today,
       thematicAreas: [1, 2], // Cybersecurity, Cloud
     },
   ];
@@ -229,9 +229,12 @@ async function main() {
         assignedMemberId: p.assignedMemberId,
         value: p.value,
         status: p.status,
+        winningChances: p.winningChances || "",
+        focalPerson: p.focalPerson || "",
         remarks: p.remarks,
         deadline: p.deadline,
         submissionDate: p.submissionDate,
+        followupDate: p.followupDate || null,
         thematicAreas: {
           create: p.thematicAreas.map((areaIdx) => ({
             thematicAreaId: thematicAreas[areaIdx].id,
@@ -249,8 +252,8 @@ async function main() {
   // ─── 4. Settings ───────────────────────────────────────────────────
   const settingData = [
     { key: "companyName", value: "CRM Pro Solutions" },
-    { key: "tagline", value: "Empowering Business Growth" },
-    { key: "logo", value: "" },
+    { key: "companyTagline", value: "Empowering Business Growth" },
+    { key: "companyLogo", value: "" },
   ];
 
   for (const s of settingData) {

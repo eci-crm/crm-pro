@@ -91,12 +91,10 @@ const STATUS_BADGE_COLORS: Record<string, string> = {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return `PKR ${new Intl.NumberFormat('en-PK', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(value)}`
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
