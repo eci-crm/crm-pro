@@ -161,14 +161,24 @@ export async function POST(request: NextRequest) {
       // 5. Proposals
       if (Array.isArray(proposals) && proposals.length > 0) {
         for (const proposal of proposals) {
+          const newLinkedId = proposal.linkedProposalId
+            ? proposalMap.get(proposal.linkedProposalId)
+            : null;
+
           const created = await tx.proposal.create({
             data: {
               name: proposal.name,
               rfpNumber: proposal.rfpNumber || "",
               clientId: clientMap.get(proposal.clientId) || proposal.clientId,
-              assignedMemberId: memberMap.get(proposal.assignedMemberId) || null,
+              assignedMemberId: memberMap.get(proposal.assignedMemberId) || "",
               value: proposal.value ?? 0,
               status: proposal.status || "In Process",
+              winningChances: proposal.winningChances || "",
+              focalPerson: proposal.focalPerson || "",
+              followupDate: proposal.followupDate
+                ? new Date(proposal.followupDate)
+                : null,
+              linkedProposalId: newLinkedId || null,
               remarks: proposal.remarks || "",
               deadline: proposal.deadline ? new Date(proposal.deadline) : null,
               submissionDate: proposal.submissionDate

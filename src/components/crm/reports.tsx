@@ -186,12 +186,7 @@ type ReportResponse = ClientReportResponse | ProposalReportResponse | SummaryRep
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+  return `PKR ${new Intl.NumberFormat('en-PK').format(value)}`
 }
 
 function formatDate(date: string | null) {
@@ -830,7 +825,7 @@ const summaryPieConfig = {
 } satisfies ChartConfig
 
 const summaryBarConfig = {
-  value: { label: 'Value ($)' },
+  value: { label: 'Value (PKR)' },
   submitted: { label: 'Submitted', color: '#0ea5e9' },
   inProcess: { label: 'In Process', color: '#f59e0b' },
   inEvaluation: { label: 'In Evaluation', color: '#a855f7' },
@@ -839,7 +834,7 @@ const summaryBarConfig = {
 } satisfies ChartConfig
 
 const clientBreakdownConfig = {
-  value: { label: 'Value ($)' },
+  value: { label: 'Value (PKR)' },
   count: { label: 'Count' },
 } satisfies ChartConfig
 
@@ -965,7 +960,7 @@ function SummaryReportView({ data }: { data: SummaryReportResponse }) {
                 <BarChart data={valueBarData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="status" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                     {valueBarData.map((entry, index) => (
@@ -1001,7 +996,7 @@ function SummaryReportView({ data }: { data: SummaryReportResponse }) {
             <ChartContainer config={clientBreakdownConfig} className="h-[300px] w-full">
               <BarChart data={clientBarData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={120} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
@@ -1023,8 +1018,8 @@ const thematicPieConfig = {
 } satisfies ChartConfig
 
 const thematicBarConfig = {
-  value: { label: 'Value ($)' },
-  wonValue: { label: 'Won Value ($)' },
+  value: { label: 'Value (PKR)' },
+  wonValue: { label: 'Won Value (PKR)' },
 } satisfies ChartConfig
 
 function ThematicReportView({ data }: { data: ThematicReportResponse }) {
