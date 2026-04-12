@@ -37,7 +37,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "seed.ts"
+    "node_modules"
   ]
 }
