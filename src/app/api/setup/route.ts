@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { execSync } from 'child_process'
 
 // POST /api/setup — Initialize the database with seed data
 // Called automatically on first visit after Vercel deployment
