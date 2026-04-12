@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { logAuditFromRequest } from '@/lib/audit'
+import { db, ensureDatabase } from '@/lib/db'
+import { logAudit } from '@/lib/audit'
+import { getClientInfo } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure database is initialized before any auth operation
+    await ensureDatabase()
+
     const body = await request.json()
     const { action } = body
 
     // POST /api/auth/logout
     if (action === 'logout') {
-      logAuditFromRequest(request, {
+      const { userId, userName, userRole } = getUserFromHeaders(request.headers)
+      await logAudit({
         action: 'LOGOUT',
         entityType: 'TeamMember',
         details: 'User logged out',
+        userId,
+        userName,
+        userRole,
       })
       return NextResponse.json({ success: true })
     }
@@ -53,7 +61,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log for login
-    logAuditFromRequest(request, {
+    const { userAgent, ipAddress } = getClientInfo(request)
+    await logAudit({
       action: 'LOGIN',
       entityType: 'TeamMember',
       entityId: member.id,
@@ -62,6 +71,8 @@ export async function POST(request: NextRequest) {
       userName: member.name,
       userRole: member.role,
       userId: member.id,
+      userAgent,
+      ipAddress,
     })
 
     return NextResponse.json({
@@ -73,16 +84,27 @@ export async function POST(request: NextRequest) {
         role: member.role,
       },
     })
-  } catch {
+  } catch (error) {
+    console.error('[Auth] Login error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error. Please try again.' },
       { status: 500 }
     )
   }
 }
 
+function getUserFromHeaders(headers: Headers) {
+  return {
+    userId: headers.get('x-user-id') || '',
+    userName: headers.get('x-user-name') || 'System',
+    userRole: headers.get('x-user-role') || '',
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
+    await ensureDatabase()
+
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
 
@@ -112,7 +134,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ user: member })
-  } catch {
+  } catch (error) {
+    console.error('[Auth] GET error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -123,6 +146,8 @@ export async function GET(request: NextRequest) {
 // PUT /api/auth - Change own password
 export async function PUT(request: NextRequest) {
   try {
+    await ensureDatabase()
+
     const body = await request.json()
     const { userId, currentPassword, newPassword } = body
 
@@ -164,7 +189,8 @@ export async function PUT(request: NextRequest) {
     })
 
     return NextResponse.json({ success: true, message: 'Password changed successfully' })
-  } catch {
+  } catch (error) {
+    console.error('[Auth] PUT error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
