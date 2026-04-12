@@ -274,3 +274,37 @@ Stage Summary:
 - Settings > Team: Create members with password, edit/reset passwords, delete members
 - Admin credentials: ahmed@crmpro.com / admin123 (Admin)
 - Vercel auto-deploy should trigger from GitHub push
+
+---
+Task ID: 7-proposal-enhancements
+Agent: Main
+Task: Add winning chances, focal person, follow-up date, linked proposal to proposals and winning chances filter to reports
+
+Work Log:
+- Updated Prisma schema: added winningChances (String), focalPerson (String), followupDate (DateTime?), linkedProposalId (String?) with self-referencing relation to Proposal model
+- Pushed schema to SQLite database (local dev), regenerated Prisma client
+- Updated proposal GET API: added winningChances filter param, linkedProposal include, focalPerson in search
+- Updated proposal POST API: validation for linkedProposalId, all new fields in create payload
+- Updated proposal PUT API: all new fields in update payload with optional/undefined pattern
+- Updated proposal [id] GET API: include linkedProposal relation
+- Rewrote proposals.tsx UI:
+  - Added winningChances dropdown with High (green), Medium (yellow), Low (red) color-coded badges
+  - Added focal person text input
+  - Added follow-up date calendar picker
+  - Added linked proposal selector (dropdown of all other proposals, excludes self when editing)
+  - Added winning chances filter to proposal list filter bar
+  - Updated desktop table: new columns for Winning Chances, Focal Person, Follow-up Date, Linked Proposal
+  - Updated mobile cards: show winning chances badge, focal person, follow-up date, linked proposal link
+  - Form dialog: organized with icons (Target for winning, User for focal person, Link2 for linked proposal, Clock for follow-up)
+- Updated reports API: added winningChances filter param to proposals, thematic, and summary report types
+- Updated reports API: added byWinningChances grouping in proposal and summary report responses
+- Updated reports UI: added Winning Chances filter dropdown to proposals and thematic report filters
+- Updated reports UI: added Winning Chances column to proposal report table
+- Updated reports UI: included winning chances, focal person, follow-up in CSV exports
+- Lint: 0 errors, 0 warnings
+- Pushed to GitHub (commit 8237eeb)
+
+Stage Summary:
+- Proposal enhancements: winning chances (High/Medium/Low), focal person, follow-up date, linked proposals
+- Reports: winning chances filter in proposal and thematic reports
+- 16 files changed, 2303 insertions, 2598 deletions
