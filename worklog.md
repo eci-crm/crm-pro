@@ -130,3 +130,31 @@ Stage Summary:
 - All CRM APIs verified working
 - Image SDK error diagnosed: wrong parameter format for edit API
 - Code pushed to GitHub: https://github.com/eci-crm/crm-pro
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Migrate CRM to PostgreSQL for Vercel deployment
+
+Work Log:
+- **Root cause identified**: SQLite does NOT work on Vercel serverless (read-only filesystem, non-persistent)
+- **Prisma schema** (`prisma/schema.prisma`): Changed `provider = "sqlite"` to `provider = "postgresql"`, added `directUrl` for connection pooling
+- **db.ts** (`src/lib/db.ts`): Removed `ensureDatabase()`, simplified to standard PrismaClient with production/development handling
+- **next.config.ts**: Removed `output: "standalone"` (not needed for Vercel), kept CORS headers and allowedDevOrigins
+- **Auth route** (`src/app/api/auth/route.ts`): Removed `ensureDatabase` import and calls — database setup is now handled by `/api/setup`
+- **New `/api/setup/route.ts`**: Auto-seeds database with 6 team members, 9 sample clients, 5 thematic areas, and default settings on first load
+- **Login page** (`src/components/login-page.tsx`): Added auto-trigger of `/api/setup` POST on mount (fire-and-forget) for first-deploy initialization
+- **package.json**: Updated build script to `prisma generate && next build`, added `vercel-build` script, installed `@vercel/postgres` and `pg`
+- **Vercel token** (`vcp_46HtrQALUIWxKzbpagtrWvGhStY8SIOwKPcT1lqLdRwigyU81J3X0n9`): Token is a Vercel Project-level token (vcp_), NOT an API token — cannot be used for REST API calls. User needs to create Vercel Postgres manually in dashboard.
+- Ran `bun run lint` — 0 errors
+- Pushed commits `2a56e7c` and `e012081` to GitHub
+
+Stage Summary:
+- CRM fully migrated from SQLite to PostgreSQL
+- Auto-setup endpoint seeds database on first Vercel deploy
+- **User must now do in Vercel Dashboard**:
+  1. Go to https://vercel.com → Project "my-project-sigma-ruby-33" → Storage → Create Postgres
+  2. Vercel will auto-set DATABASE_URL and DIRECT_URL environment variables
+  3. Set Build Command to: `npx prisma generate && npx prisma db push --skip-generate && npx next build`
+  4. Redeploy
+  5. Visit the app — it auto-seeds on first load
