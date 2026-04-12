@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Link2, User, Target, Clock } from 'lucide-react'
+import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Link2, User, Target, Clock, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -170,6 +170,9 @@ export default function ProposalsPage() {
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Proposal | null>(null)
   const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([])
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors?: string[] } | null>(null)
 
   // ── Debounced search ────────────────────────────────────────────────────
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -380,6 +383,50 @@ export default function ProposalsPage() {
     [saveMutation]
   )
 
+  // ── Mutation: Import from Excel ──────────────────────────────────────
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/proposals/import', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to import proposals')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] })
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setImportResult({ created: data.created, skipped: data.skipped, errors: data.errors })
+      toast.success(data.message || `${data.created} proposal(s) imported successfully`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Import failed')
+      setImportResult(null)
+    },
+  })
+
+  const handleImport = useCallback(() => {
+    if (!importFile) return
+    setImportResult(null)
+    importMutation.mutate(importFile)
+  }, [importFile, importMutation])
+
+  const handleDownloadTemplate = useCallback(() => {
+    window.open('/api/proposals/template', '_blank')
+  }, [])
+
+  const closeImportDialog = useCallback(() => {
+    setImportDialogOpen(false)
+    setImportFile(null)
+    setImportResult(null)
+    importMutation.reset()
+  }, [importMutation])
+
   const clearFilters = useCallback(() => {
     setSearch('')
     setClientFilter('')
@@ -410,10 +457,16 @@ export default function ProposalsPage() {
             Create, track and manage your business proposals and tenders
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700 text-white shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Proposal
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={() => { setImportDialogOpen(true); setImportResult(null); setImportFile(null) }} variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+          <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Proposal
+          </Button>
+        </div>
       </div>
 
       {/* ── Filter Bar ─────────────────────────────────────────────────── */}
@@ -1185,6 +1238,197 @@ export default function ProposalsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Import Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => !open && closeImportDialog()}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+              Import Proposals from Excel
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Upload an Excel file (.xlsx) with proposal data to import in bulk.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Step 1: Download Template */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-sm font-bold text-blue-600">1</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900">Download Template</p>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    First, download the Excel template and fill in your proposal data.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 border-blue-300 text-blue-700 hover:bg-blue-100 h-8"
+                    onClick={handleDownloadTemplate}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Download Template
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Upload File */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-sm font-bold text-slate-600">2</span>
+                </div>
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Upload Filled Template</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Upload the .xlsx file with your proposal data.
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null
+                        setImportFile(file)
+                        setImportResult(null)
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div
+                      className={cn(
+                        'border-2 border-dashed rounded-lg p-4 text-center transition-colors',
+                        importFile
+                          ? 'border-emerald-300 bg-emerald-50/50'
+                          : 'border-slate-300 bg-white hover:border-blue-300 hover:bg-blue-50/30'
+                      )}
+                    >
+                      {importFile ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                          <div className="text-left">
+                            <p className="text-sm font-medium text-slate-800 truncate max-w-[280px]">
+                              {importFile.name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {(importFile.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setImportFile(null)
+                              setImportResult(null)
+                            }}
+                            className="ml-2 h-6 w-6 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center"
+                          >
+                            <X className="h-3 w-3 text-slate-600" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-slate-700">
+                            Click to select file
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            .xlsx, .xls, or .csv files supported
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Import Result */}
+            {importResult && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <p className="text-sm font-semibold text-emerald-800">
+                    Import Completed
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-emerald-700">
+                      {importResult.created} proposal(s) created
+                    </span>
+                  </div>
+                  {importResult.skipped > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500">
+                        {importResult.skipped} row(s) skipped
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-emerald-200">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-xs font-semibold text-amber-700">
+                        {importResult.errors.length} warning(s)
+                      </span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-0.5">
+                      {importResult.errors.slice(0, 10).map((err, i) => (
+                        <p key={i} className="text-xs text-amber-600">
+                          {err}
+                        </p>
+                      ))}
+                      {importResult.errors.length > 10 && (
+                        <p className="text-xs text-slate-500">
+                          ...and {importResult.errors.length - 10} more
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-slate-100 gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeImportDialog}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleImport}
+              disabled={!importFile || importMutation.isPending}
+            >
+              {importMutation.isPending ? (
+                <>
+                  <div className="h-4 w-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import Data
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
