@@ -329,9 +329,9 @@ export default function AuditTrailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Total Events</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoading ? <Skeleton className="h-7 w-16 inline-block" /> : totalLogs.toLocaleString()}
-                </p>
+                <div className="text-2xl font-bold text-foreground">
+                  {isLoading ? <Skeleton className="h-7 w-16" /> : totalLogs.toLocaleString()}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -344,9 +344,9 @@ export default function AuditTrailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Total Logins</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoading ? <Skeleton className="h-7 w-16 inline-block" /> : loginsToday.toLocaleString()}
-                </p>
+                <div className="text-2xl font-bold text-foreground">
+                  {isLoading ? <Skeleton className="h-7 w-16" /> : loginsToday.toLocaleString()}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -359,9 +359,9 @@ export default function AuditTrailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Entity Types</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoading ? <Skeleton className="h-7 w-8 inline-block" /> : activeEntities}
-                </p>
+                <div className="text-2xl font-bold text-foreground">
+                  {isLoading ? <Skeleton className="h-7 w-8" /> : activeEntities}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -374,9 +374,9 @@ export default function AuditTrailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Top Action</p>
-                <p className="text-lg font-bold text-foreground capitalize">
-                  {isLoading ? <Skeleton className="h-7 w-20 inline-block" /> : topAction ? `${topAction.action.toLowerCase()} (${topAction.count})` : 'N/A'}
-                </p>
+                <div className="text-lg font-bold text-foreground capitalize">
+                  {isLoading ? <Skeleton className="h-7 w-20" /> : topAction ? `${topAction.action.toLowerCase()} (${topAction.count})` : 'N/A'}
+                </div>
               </div>
             </div>
           </CardContent>
