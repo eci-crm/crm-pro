@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useSyncExternalStore } from 'react'
 import { useCrmStore } from '@/lib/store'
 import CrmLayout from '@/components/crm-layout'
 import LoginPage from '@/components/login-page'
@@ -26,6 +27,19 @@ const pageComponents: Record<string, React.ComponentType> = {
 export default function Home() {
   const isAuthenticated = useCrmStore((s) => s.isAuthenticated)
   const currentPage = useCrmStore((s) => s.currentPage)
+
+  // Returns false on server, true on client — no state, no effect, no lint error
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
+
+  // Defer rendering until client-side hydration completes to avoid mismatch
+  // between server (always unauthenticated) and client (may read localStorage)
+  if (!mounted) {
+    return null
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />

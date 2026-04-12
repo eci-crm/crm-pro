@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export default function LoginPage() {
   const { setUser } = useCrmStore()
@@ -19,14 +18,12 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [mounted, setMounted] = useState(false)
 
   // Branding from settings
   const [companyName, setCompanyName] = useState('CRM Pro')
   const [companyLogo, setCompanyLogo] = useState('')
 
   useEffect(() => {
-    setMounted(true)
     // Restore saved email
     const savedEmail = localStorage.getItem('crm_remember_email')
     if (savedEmail) {
@@ -101,8 +98,6 @@ export default function LoginPage() {
       setLoading(false)
     }
   }
-
-  if (!mounted) return null
 
   return (
     <div className="flex min-h-screen">
