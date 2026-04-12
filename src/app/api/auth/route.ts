@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, ensureDatabase } from '@/lib/db'
+import { db } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { getClientInfo } from '@/lib/audit'
 
 export async function POST(request: NextRequest) {
   try {
-    // Ensure database is initialized before any auth operation
-    await ensureDatabase()
-
     const body = await request.json()
     const { action } = body
 
@@ -103,8 +100,6 @@ function getUserFromHeaders(headers: Headers) {
 
 export async function GET(request: NextRequest) {
   try {
-    await ensureDatabase()
-
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
 
@@ -146,8 +141,6 @@ export async function GET(request: NextRequest) {
 // PUT /api/auth - Change own password
 export async function PUT(request: NextRequest) {
   try {
-    await ensureDatabase()
-
     const body = await request.json()
     const { userId, currentPassword, newPassword } = body
 

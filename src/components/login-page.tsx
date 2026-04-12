@@ -31,6 +31,11 @@ export default function LoginPage() {
       setRememberMe(true)
     }
 
+    // Auto-initialize database on Vercel (fire-and-forget)
+    fetch('/api/setup', { method: 'POST' })
+      .then(() => {})
+      .catch(() => {})
+
     // Fetch company branding settings
     fetch('/api/settings')
       .then((res) => res.json())
