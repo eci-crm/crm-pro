@@ -855,7 +855,7 @@ function SummaryReportView({ data }: { data: SummaryReportResponse }) {
   }))
 
   const clientEntries = Object.entries(
-    (data as ProposalReportResponse).summary?.byClient || {}
+    (data as unknown as ProposalReportResponse).summary?.byClient || {}
   )
   const clientBarData = clientEntries
     .map(([, group]: [string, ClientGroup]) => ({

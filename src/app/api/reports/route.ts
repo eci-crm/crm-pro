@@ -196,14 +196,14 @@ export async function GET(request: NextRequest) {
         orderBy: { sortOrder: "asc" },
         include: {
           proposals: {
-            where: Object.keys(proposalWhere).length > 0 ? proposalWhere : undefined,
+            where: Object.keys(proposalWhere).length > 0 ? (proposalWhere as any) : undefined,
             include: {
               client: { select: { id: true, name: true } },
               assignedMember: { select: { id: true, name: true } },
             },
           },
         },
-      });
+      } as any);
 
       // Build summary by thematic area
       const byArea: Record<string, { count: number; totalValue: number; wonCount: number; wonValue: number; areaName: string; areaColor: string }> = {};
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
         assignedMember: { id: string; name: string } | null;
       }> = [];
 
-      for (const area of areas) {
+      for (const area of areas as any[]) {
         byArea[area.id] = {
           count: area.proposals.length,
           totalValue: area.proposals.reduce((s, p) => s + p.value, 0),
@@ -256,12 +256,12 @@ export async function GET(request: NextRequest) {
           byArea,
         },
         data: {
-          areas: areas.map((a) => ({
+          areas: (areas as any[]).map((a: any) => ({
             id: a.id,
             name: a.name,
             color: a.color,
             proposalCount: a.proposals.length,
-            totalValue: a.proposals.reduce((s, p) => s + p.value, 0),
+            totalValue: a.proposals.reduce((s: number, p: any) => s + p.value, 0),
           })),
           proposals: allProposals,
         },

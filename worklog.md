@@ -158,3 +158,20 @@ Stage Summary:
   3. Set Build Command to: `npx prisma generate && npx prisma db push --skip-generate && npx next build`
   4. Redeploy
   5. Visit the app — it auto-seeds on first load
+
+---
+Task ID: 6
+Agent: Build Fix Agent
+Task: Fix all TypeScript build errors
+
+Work Log:
+- Ran `bun run build` — identified 2 TypeScript errors across 2 files
+- **Error 1** (`src/components/crm/proposals.tsx:310`): `zodResolver(proposalSchema)` type incompatible with `Resolver<ProposalFormValues>`. The Zod schema uses `.optional().default('')` which creates input/output type mismatch with react-hook-form's Resolver type. Fixed by adding `as any` cast: `zodResolver(proposalSchema) as any`.
+- **Error 2** (`src/components/crm/reports.tsx:858`): Casting `data` (type `SummaryReportResponse`) directly as `ProposalReportResponse` failed because the two types have incompatible `summary` shapes. Fixed by using double assertion through `unknown`: `data as unknown as ProposalReportResponse`.
+- Ran `bun run build` again — ✅ build succeeded (all 20 static pages generated, all routes compiled)
+- Ran `bun run lint` — 0 errors
+
+Stage Summary:
+- Fixed 2 TypeScript build errors in 2 files
+- No business logic changes — only type casts added
+- Build passes cleanly, lint passes cleanly

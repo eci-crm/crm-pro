@@ -307,7 +307,7 @@ export default function ProposalsPage() {
 
   // ── Form ────────────────────────────────────────────────────────────────
   const form = useForm<ProposalFormValues>({
-    resolver: zodResolver(proposalSchema),
+    resolver: zodResolver(proposalSchema) as any,
     defaultValues: {
       name: '',
       rfpNumber: '',
