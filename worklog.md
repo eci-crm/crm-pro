@@ -80,3 +80,30 @@ Stage Summary:
 - Audit log page with filters, stats, pagination, CSV export, and responsive design
 - All existing functionality preserved — no breaking changes
 - Dev server compiles and runs successfully
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Remove unnecessary and overlapping files without disturbing functionality
+
+Work Log:
+- Analyzed all 75+ source files for usage (imports across entire codebase)
+- Identified 25 unused shadcn/ui components via grep verification
+- Verified each component was NOT imported by any application code (outside self-references)
+- Confirmed 23 active UI components are all properly imported and used
+- Deleted 25 unused UI components: accordion, alert, aspect-ratio, breadcrumb, calendar (ui/), carousel, command, context-menu, drawer, hover-card, input-otp, menubar, navigation-menu, pagination, progress, radio-group, resizable, sidebar, slider, sonner (wrapper), switch, toast, toaster, toggle, toggle-group
+- Deleted 3 unused source files: src/lib/api.ts (dead fetch wrapper), src/hooks/use-toast.ts (dead toast hook), src/app/api/route.ts (dead "Hello world" endpoint)
+- Deleted dead tailwind.config.ts (Tailwind v4 uses globals.css @theme)
+- Deleted build artifacts: next-env.d.ts, tsconfig.tsbuildinfo
+- Deleted dev artifact directories: examples/, agent-ctx/, download/
+- Removed 29 unused npm packages via bun remove
+- Ran bun run lint — 0 errors
+- Verified dev server compiles and runs successfully
+
+Stage Summary:
+- 25 unused UI components deleted (from 48 down to 23 actively used)
+- 3 unused source files deleted
+- 1 dead config file deleted
+- 3 directories of dev artifacts deleted
+- 29 unused npm packages removed
+- All functionality preserved — lint clean, dev server running
