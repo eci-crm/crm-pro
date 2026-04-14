@@ -144,7 +144,7 @@ interface ImportResult {
   rowDetails: ParsedRow[]
   createdIds: string[]
   clientsCreated: number
-  thematicAreasCreated: number[]
+  thematicAreasCreated: string[]
 }
 
 // ── Helper Functions ─────────────────────────────────────────────────────
