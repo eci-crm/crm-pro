@@ -18,6 +18,7 @@ import {
   ArrowUp,
   ArrowDown,
   AlertTriangle,
+  Upload,
 } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
@@ -58,6 +59,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import ImportDialog from '@/components/import-dialog'
 import {
   Form,
   FormControl,
@@ -238,6 +240,7 @@ export default function ClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null)
   const [sortField, setSortField] = useState<'name' | 'createdAt'>('createdAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [importOpen, setImportOpen] = useState(false)
 
   // ── Query ────────────────────────────────────────────────────────────────
   const {
@@ -396,13 +399,22 @@ export default function ClientsPage() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-blue-600 text-white shadow-sm hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add Client
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="text-slate-600 border-slate-300 hover:bg-slate-50"
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={openCreateDialog}
+            className="bg-blue-600 text-white shadow-sm hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {/* ─── Search & Filter Bar ──────────────────────────────────────────── */}
@@ -785,6 +797,15 @@ export default function ClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ─── Import Dialog ──────────────────────────────────────────────── */}
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        type="clients"
+        title="Import Clients from Excel"
+        description="Upload an Excel file (.xlsx) or CSV file to bulk import clients. The system will auto-detect columns and validate your data."
+      />
     </div>
   )
 }

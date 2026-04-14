@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Loader2 } from 'lucide-react'
+import { CalendarIcon, Plus, Search, Pencil, Trash2, FileText, Filter, X, Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -56,6 +56,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
+import ImportDialog from '@/components/import-dialog'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,7 @@ export default function ProposalsPage() {
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Proposal | null>(null)
   const [selectedAreaIds, setSelectedAreaIds] = useState<string[]>([])
+  const [importOpen, setImportOpen] = useState(false)
 
   // ── Debounced search ────────────────────────────────────────────────────
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -371,10 +373,16 @@ export default function ProposalsPage() {
             Create, track and manage your business proposals and tenders
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700 text-white shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Proposal
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="text-slate-600 border-slate-300 hover:bg-slate-50">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+          <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Proposal
+          </Button>
+        </div>
       </div>
 
       {/* ── Filter Bar ─────────────────────────────────────────────────── */}
@@ -1027,6 +1035,15 @@ export default function ProposalsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Import Dialog ──────────────────────────────────────────────── */}
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        type="proposals"
+        title="Import Proposals from Excel"
+        description="Upload an Excel file (.xlsx) or CSV file to bulk import proposals. The system will auto-detect columns and validate your data."
+      />
     </div>
   )
 }
