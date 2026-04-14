@@ -155,12 +155,47 @@ function normalizeHeader(header: string): string {
 
 function matchColumn(excelHeader: string): string | null {
   const normalized = normalizeHeader(excelHeader)
+
+  // Score-based matching: prefer exact matches, then longer alias matches (more specific)
+  interface MatchCandidate {
+    field: string
+    score: number
+    alias: string
+    matchType: 'exact' | 'normalizedContainsAlias' | 'aliasContainsNormalized'
+  }
+
+  const candidates: MatchCandidate[] = []
+
   for (const [field, config] of Object.entries(PROPOSAL_COLUMNS)) {
     for (const alias of config.aliases) {
-      if (normalized === alias || normalized.includes(alias) || alias.includes(normalized)) return field
+      // Exact match — highest priority
+      if (normalized === alias) {
+        candidates.push({ field, score: 1000, alias, matchType: 'exact' })
+        continue
+      }
+
+      // Normalized header contains the full alias (e.g. "client name" contains "client name")
+      // Score proportional to alias length to prefer more specific matches
+      if (normalized.includes(alias)) {
+        candidates.push({ field, score: 100 + alias.length, alias, matchType: 'normalizedContainsAlias' })
+        continue
+      }
+
+      // Alias contains normalized (e.g. "proposal name" contains "name")
+      // Only allow if normalized is reasonably close to alias length (at least 50% of alias)
+      // and normalized is at least 2 chars to avoid single-char false matches
+      if (alias.includes(normalized) && normalized.length >= 2 && normalized.length >= alias.length * 0.5) {
+        candidates.push({ field, score: 50 + (normalized.length / alias.length) * 50, alias, matchType: 'aliasContainsNormalized' })
+      }
     }
   }
-  return null
+
+  if (candidates.length === 0) return null
+
+  // Sort by score descending — best match wins
+  candidates.sort((a, b) => b.score - a.score)
+
+  return candidates[0].field
 }
 
 function parseDate(value: string): Date | null {
