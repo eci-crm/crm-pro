@@ -209,6 +209,10 @@ function parseDate(value: string): Date | null {
   if (!value || value.trim() === '') return null
   const trimmed = value.trim()
 
+  // Treat common "no date" markers as empty
+  const noDateMarkers = ['-', '—', '–', '/', 'n/a', 'na', 'tbd', 'tba', 'none', 'nil', 'nill', 'pending', 'not set', 'not available', '.']
+  if (noDateMarkers.includes(trimmed.toLowerCase())) return null
+
   // Try ISO / native parse
   const isoDate = Date.parse(trimmed)
   if (!isNaN(isoDate)) {
@@ -825,11 +829,11 @@ export async function POST(request: NextRequest) {
               name,
               rfpNumber,
               clientId,
-              assignedMemberId,
+              assignedMemberId: assignedMemberId || undefined,
               value,
               status,
-              winningChances,
-              focalPerson,
+              winningChances: winningChances || undefined,
+              focalPerson: focalPerson || undefined,
               followUpDate,
               remarks,
               deadline,
