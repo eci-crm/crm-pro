@@ -45,7 +45,7 @@ model Proposal {
   rfpNumber        String                @default("")
   clientId         String
   client           Client                @relation(fields: [clientId], references: [id])
-  assignedMemberId String                @default("")
+  assignedMemberId String?
   assignedMember   TeamMember?           @relation(fields: [assignedMemberId], references: [id])
   value            Float                 @default(0)
   status           String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won

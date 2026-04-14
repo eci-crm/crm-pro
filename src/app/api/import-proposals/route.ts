@@ -581,10 +581,10 @@ export async function POST(request: NextRequest) {
 
       // ── Validate: Assigned To (optional — non-blocking, just warn) ──
       const memberName = (mappedData['assignedMemberName'] || '').toString().trim()
-      let assignedMemberId = ''
+      let assignedMemberId: string | null = null
 
       if (memberName) {
-        assignedMemberId = memberMap.get(memberName.toLowerCase().trim()) || ''
+        assignedMemberId = memberMap.get(memberName.toLowerCase().trim()) || null
         if (!assignedMemberId) {
           // Try partial match (min 3 chars, 60% length ratio)
           const ml = memberName.toLowerCase().trim()
@@ -813,7 +813,7 @@ export async function POST(request: NextRequest) {
               name,
               rfpNumber,
               clientId,
-              assignedMemberId: assignedMemberId || undefined,
+              assignedMemberId: assignedMemberId || null,
               value,
               status,
               winningChances: winningChances || undefined,

@@ -116,7 +116,7 @@ export async function PUT(
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(rfpNumber !== undefined ? { rfpNumber } : {}),
         ...(clientId !== undefined ? { clientId } : {}),
-        ...(assignedMemberId !== undefined ? { assignedMemberId } : {}),
+        ...(assignedMemberId !== undefined ? { assignedMemberId: assignedMemberId || null } : {}),
         ...(value !== undefined ? { value } : {}),
         ...(status !== undefined ? { status } : {}),
         ...(remarks !== undefined ? { remarks } : {}),

@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         rfpNumber: rfpNumber || "",
         clientId,
-        assignedMemberId: assignedMemberId || "",
+        assignedMemberId: assignedMemberId || null,
         value: value || 0,
         status: status || "In Process",
         winningChances: winningChances || "",
