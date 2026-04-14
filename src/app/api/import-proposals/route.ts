@@ -259,6 +259,7 @@ function parseDate(value: string): Date | null {
 function parseNumber(value: string): number | null {
   if (!value || value.trim() === '') return 0
   const cleaned = value.toString().replace(/[,，\s₨Rs.PKRAEDaed]/g, '').trim()
+  if (!cleaned) return 0
   const num = parseFloat(cleaned)
   return isNaN(num) ? null : num
 }
@@ -307,6 +308,9 @@ function normalizeClientStatus(value: string): string | null {
 function normalizeWinningChances(value: string): string {
   if (!value || value.trim() === '') return ''
   const v = value.trim().toLowerCase()
+  // Treat common empty markers as no value
+  const emptyMarkers = ['-', '—', '–', '/', 'n/a', 'na', 'none', 'nil', 'tbd', 'tba', 'not set', '.']
+  if (emptyMarkers.includes(v)) return ''
   const map: Record<string, string> = {
     low: 'Low',
     medium: 'Medium',
@@ -626,13 +630,9 @@ export async function POST(request: NextRequest) {
         const parsed = parseNumber(valueRaw)
         if (parsed === null) {
           const colDef = PROPOSAL_COLUMNS['value']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('value'),
-            value: valueRaw,
-            message: `"${valueRaw}" is not a valid number. Remove currency symbols, commas, or text.`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Value "${valueRaw}" is not a valid number — skipped. Expected: ${colDef.format}`
+          )
         } else {
           value = parsed
         }
@@ -645,13 +645,9 @@ export async function POST(request: NextRequest) {
         const normalized = normalizeStatus(statusRaw)
         if (!normalized) {
           const colDef = PROPOSAL_COLUMNS['status']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('status'),
-            value: statusRaw,
-            message: `"${statusRaw}" is not a recognized status.`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Status "${statusRaw}" is not recognized — defaulted to "In Process". Expected: ${colDef.format}`
+          )
         } else {
           status = normalized
           if (normalized !== statusRaw && statusRaw.toLowerCase() !== normalized.toLowerCase()) {
@@ -680,13 +676,9 @@ export async function POST(request: NextRequest) {
         deadline = parseDate(deadlineRaw)
         if (!deadline) {
           const colDef = PROPOSAL_COLUMNS['deadline']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('deadline'),
-            value: deadlineRaw,
-            message: `"${deadlineRaw}" is not a recognizable date format.`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Deadline "${deadlineRaw}" is not a valid date — skipped. Expected: ${colDef.format}`
+          )
         }
       }
 
@@ -697,13 +689,9 @@ export async function POST(request: NextRequest) {
         submissionDate = parseDate(submissionDateRaw)
         if (!submissionDate) {
           const colDef = PROPOSAL_COLUMNS['submissionDate']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('submissionDate'),
-            value: submissionDateRaw,
-            message: `"${submissionDateRaw}" is not a recognizable date format.`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Submission Date "${submissionDateRaw}" is not a valid date — skipped. Expected: ${colDef.format}`
+          )
         }
       }
 
@@ -785,13 +773,9 @@ export async function POST(request: NextRequest) {
         followUpDate = parseDate(followUpDateRaw)
         if (!followUpDate) {
           const colDef = PROPOSAL_COLUMNS['followUpDate']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('followUpDate'),
-            value: followUpDateRaw,
-            message: `"${followUpDateRaw}" is not a recognizable date format.`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Follow Up Date "${followUpDateRaw}" is not a valid date — skipped. Expected: ${colDef.format}`
+          )
         }
       }
 
