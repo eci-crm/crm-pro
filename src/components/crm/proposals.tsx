@@ -83,6 +83,9 @@ interface Proposal {
   assignedMember: TeamMember | null
   value: number
   status: string
+  winningChances: string
+  focalPerson: string
+  followUpDate: string | null
   remarks: string
   deadline: string | null
   submissionDate: string | null
@@ -103,6 +106,13 @@ const STATUS_COLORS: Record<string, string> = {
   Won: 'bg-green-100 text-green-800 border-green-200',
 }
 
+const WINNING_CHANCES_OPTIONS = ['Low', 'Medium', 'High'] as const
+const WINNING_CHANCES_COLORS: Record<string, string> = {
+  Low: 'bg-red-100 text-red-700 border-red-200',
+  Medium: 'bg-amber-100 text-amber-700 border-amber-200',
+  High: 'bg-green-100 text-green-700 border-green-200',
+}
+
 // ── Zod Schema ──────────────────────────────────────────────────────────────
 
 const proposalSchema = z.object({
@@ -112,6 +122,9 @@ const proposalSchema = z.object({
   assignedMemberId: z.string().optional().default(''),
   value: z.number().min(0).optional().default(0),
   status: z.string().optional().default('In Process'),
+  winningChances: z.string().optional().default(''),
+  focalPerson: z.string().optional().default(''),
+  followUpDate: z.date().nullable().optional(),
   remarks: z.string().optional().default(''),
   deadline: z.date().nullable().optional(),
   submissionDate: z.date().nullable().optional(),
@@ -214,6 +227,7 @@ export default function ProposalsPage() {
         ...data,
         deadline: data.deadline ? format(data.deadline, 'yyyy-MM-dd') : null,
         submissionDate: data.submissionDate ? format(data.submissionDate, 'yyyy-MM-dd') : null,
+        followUpDate: data.followUpDate ? format(data.followUpDate, 'yyyy-MM-dd') : null,
         thematicAreaIds: selectedAreaIds,
       }
       if (editingProposal) {
@@ -277,6 +291,9 @@ export default function ProposalsPage() {
       assignedMemberId: '',
       value: 0,
       status: 'In Process',
+      winningChances: '',
+      focalPerson: '',
+      followUpDate: null,
       remarks: '',
       deadline: null,
       submissionDate: null,
@@ -293,6 +310,9 @@ export default function ProposalsPage() {
       assignedMemberId: '',
       value: 0,
       status: 'In Process',
+      winningChances: '',
+      focalPerson: '',
+      followUpDate: null,
       remarks: '',
       deadline: null,
       submissionDate: null,
@@ -311,6 +331,9 @@ export default function ProposalsPage() {
         assignedMemberId: proposal.assignedMemberId || '',
         value: proposal.value,
         status: proposal.status,
+        winningChances: proposal.winningChances || '',
+        focalPerson: proposal.focalPerson || '',
+        followUpDate: proposal.followUpDate ? new Date(proposal.followUpDate) : null,
         remarks: proposal.remarks,
         deadline: proposal.deadline ? new Date(proposal.deadline) : null,
         submissionDate: proposal.submissionDate ? new Date(proposal.submissionDate) : null,
@@ -360,6 +383,7 @@ export default function ProposalsPage() {
   const watchedClientId = useWatch({ control: form.control, name: 'clientId' })
   const watchedMemberId = useWatch({ control: form.control, name: 'assignedMemberId' })
   const watchedStatus = useWatch({ control: form.control, name: 'status' })
+  const watchedWinningChances = useWatch({ control: form.control, name: 'winningChances' })
 
   return (
     <div className="space-y-6">
@@ -557,6 +581,9 @@ export default function ProposalsPage() {
                     <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Assigned To</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Value (PKR)</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Win Chance</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Focal Person</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Follow Up</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Deadline</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
@@ -603,6 +630,26 @@ export default function ProposalsPage() {
                         >
                           {proposal.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {proposal.winningChances ? (
+                          <Badge
+                            className={cn(
+                              'border text-xs font-medium px-2 py-0.5',
+                              WINNING_CHANCES_COLORS[proposal.winningChances] || 'bg-slate-100 text-slate-700 border-slate-200'
+                            )}
+                          >
+                            {proposal.winningChances}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-slate-600 text-sm">
+                        {proposal.focalPerson || <span className="text-slate-400">—</span>}
+                      </TableCell>
+                      <TableCell className="text-slate-600 text-sm">
+                        {formatDate(proposal.followUpDate)}
                       </TableCell>
                       <TableCell className="text-slate-600 text-sm">
                         {formatDate(proposal.deadline)}
@@ -685,6 +732,29 @@ export default function ProposalsPage() {
                     <div>
                       <span className="text-slate-500 text-xs block">Value</span>
                       <span className="text-slate-800 font-medium">{formatPKR(proposal.value)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-xs block">Win Chance</span>
+                      {proposal.winningChances ? (
+                        <Badge
+                          className={cn(
+                            'border text-xs font-medium px-2 py-0.5',
+                            WINNING_CHANCES_COLORS[proposal.winningChances] || 'bg-slate-100 text-slate-700 border-slate-200'
+                          )}
+                        >
+                          {proposal.winningChances}
+                        </Badge>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-xs block">Focal Person</span>
+                      <span className="text-slate-800 font-medium">{proposal.focalPerson || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-xs block">Follow Up</span>
+                      <span className="text-slate-800 font-medium">{formatDate(proposal.followUpDate)}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-xs block">Deadline</span>
@@ -894,6 +964,76 @@ export default function ProposalsPage() {
                   {selectedAreaIds.length} area{selectedAreaIds.length !== 1 ? 's' : ''} selected
                 </p>
               )}
+            </div>
+
+            {/* Winning Chances & Focal Person - side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Winning Chances */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-700">
+                  Winning Chances
+                </Label>
+                <Select
+                  value={watchedWinningChances || '__none__'}
+                  onValueChange={(val) => form.setValue('winningChances', val === '__none__' ? '' : val)}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select chance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Not Set</SelectItem>
+                    {WINNING_CHANCES_OPTIONS.map((w) => (
+                      <SelectItem key={w} value={w}>
+                        {w}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Focal Person */}
+              <div className="space-y-1.5">
+                <Label htmlFor="focalPerson" className="text-sm font-medium text-slate-700">
+                  Focal Person
+                </Label>
+                <Input
+                  id="focalPerson"
+                  placeholder="Contact person name"
+                  {...form.register('focalPerson')}
+                  className="h-9"
+                />
+              </div>
+            </div>
+
+            {/* Follow Up Date */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-700">
+                Follow Up Date
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'h-9 w-full justify-start text-left font-normal',
+                      !form.getValues('followUpDate') && 'text-slate-400'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {form.getValues('followUpDate')
+                      ? format(new Date(form.getValues('followUpDate')!), 'dd MMM yyyy')
+                      : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.getValues('followUpDate') || undefined}
+                    onSelect={(date) => form.setValue('followUpDate', date || null)}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Remarks */}

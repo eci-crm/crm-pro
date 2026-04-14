@@ -89,6 +89,13 @@ const PROPOSAL_COLUMNS: Record<string, {
     example: 'Muhammad Ali',
     group: 'proposal',
   },
+  followUpDate: {
+    aliases: ['follow up date', 'follow-up date', 'followup date', 'follow up', 'next follow up', 'next follow-up'],
+    required: false,
+    format: 'Date in format: YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY',
+    example: '2025-07-15',
+    group: 'proposal',
+  },
   deadline: {
     aliases: ['deadline', 'due date', 'closing date', 'submission deadline', 'last date'],
     required: false,
@@ -767,6 +774,23 @@ export async function POST(request: NextRequest) {
       const remarks = (mappedData['remarks'] || '').toString().trim()
       const rfpNumber = (mappedData['rfpNumber'] || '').toString().trim()
 
+      // ── Validate: Follow Up Date (optional) ──
+      const followUpDateRaw = (mappedData['followUpDate'] || '').toString()
+      let followUpDate: Date | null = null
+      if (followUpDateRaw.trim()) {
+        followUpDate = parseDate(followUpDateRaw)
+        if (!followUpDate) {
+          const colDef = PROPOSAL_COLUMNS['followUpDate']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('followUpDate'),
+            value: followUpDateRaw,
+            message: `"${followUpDateRaw}" is not a recognizable date format.`,
+            expectedFormat: colDef.format,
+          })
+        }
+      }
+
       // Build parsed row for response
       const parsedRow: ParsedRow = {
         row: rowNum,
@@ -781,6 +805,7 @@ export async function POST(request: NextRequest) {
           thematicAreas: areasRaw,
           winningChances,
           focalPerson,
+          followUpDate: followUpDate ? followUpDate.toISOString().split('T')[0] : '',
           deadline: deadline ? deadline.toISOString().split('T')[0] : '',
           submissionDate: submissionDate ? submissionDate.toISOString().split('T')[0] : '',
           remarks,
@@ -805,6 +830,7 @@ export async function POST(request: NextRequest) {
               status,
               winningChances,
               focalPerson,
+              followUpDate,
               remarks,
               deadline,
               submissionDate,
@@ -884,6 +910,7 @@ export async function GET(request: NextRequest) {
           'Thematic Areas': thematicAreas[0]?.name || 'IT & Technology',
           'Winning Chances': 'Medium',
           'Focal Person': 'Muhammad Ali',
+          'Follow Up Date': '2025-07-15',
           'Deadline': '2025-06-30',
           'Submission Date': '2025-06-15',
           'Remarks': 'Sample proposal remarks',
@@ -900,6 +927,7 @@ export async function GET(request: NextRequest) {
           'Thematic Areas': thematicAreas.length > 1 ? thematicAreas[1].name : '',
           'Winning Chances': 'High',
           'Focal Person': '',
+          'Follow Up Date': '',
           'Deadline': '',
           'Submission Date': '',
           'Remarks': '',
@@ -916,6 +944,7 @@ export async function GET(request: NextRequest) {
           'Thematic Areas': 'New Sector Name',
           'Winning Chances': '',
           'Focal Person': '',
+          'Follow Up Date': '',
           'Deadline': '2025-07-31',
           'Submission Date': '',
           'Remarks': 'This client and sector will be created automatically',
@@ -937,6 +966,7 @@ export async function GET(request: NextRequest) {
         { wch: 35 }, // Thematic Areas
         { wch: 15 }, // Winning Chances
         { wch: 20 }, // Focal Person
+        { wch: 18 }, // Follow Up Date
         { wch: 15 }, // Deadline
         { wch: 18 }, // Submission Date
         { wch: 40 }, // Remarks
@@ -968,7 +998,7 @@ export async function GET(request: NextRequest) {
         { 'Field': 'Status (Proposal)', 'Valid Values': VALID_STATUSES.join(', '), 'Default': 'In Process' },
         { 'Field': 'Winning Chances', 'Valid Values': VALID_WINNING_CHANCES.join(', '), 'Default': '(empty)' },
         { 'Field': 'Client Status', 'Valid Values': VALID_CLIENT_STATUSES.join(', '), 'Default': 'Active (used when auto-creating)' },
-        { 'Field': 'Date Format', 'Valid Values': 'YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY', 'Example': '2025-06-30 or 30/06/2025' },
+        { 'Field': 'Date Fields (Deadline, Submission Date, Follow Up Date)', 'Valid Values': 'YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY', 'Example': '2025-06-30 or 30/06/2025' },
         { 'Field': 'Value Format', 'Valid Values': 'Numbers only, commas optional', 'Example': '1500000 or 1,500,000' },
         { 'Field': 'Thematic Areas', 'Valid Values': 'Comma-separated names, auto-created if not found', 'Example': 'IT, Healthcare, Education' },
         { 'Field': 'Existing Clients', 'Valid Values': clients.map(c => c.name).join(', ') || 'No clients yet', 'Default': '(none)' },

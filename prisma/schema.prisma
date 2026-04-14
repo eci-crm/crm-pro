@@ -51,6 +51,7 @@ model Proposal {
   status           String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
   winningChances   String                @default("")
   focalPerson      String                @default("")
+  followUpDate     DateTime?
   remarks          String                @default("")
   deadline         DateTime?
   submissionDate   DateTime?

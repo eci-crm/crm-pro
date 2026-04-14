@@ -54,6 +54,9 @@ export async function PUT(
       assignedMemberId,
       value,
       status,
+      winningChances,
+      focalPerson,
+      followUpDate,
       remarks,
       deadline,
       submissionDate,
@@ -117,6 +120,11 @@ export async function PUT(
         ...(value !== undefined ? { value } : {}),
         ...(status !== undefined ? { status } : {}),
         ...(remarks !== undefined ? { remarks } : {}),
+        ...(winningChances !== undefined ? { winningChances } : {}),
+        ...(focalPerson !== undefined ? { focalPerson } : {}),
+        ...(followUpDate !== undefined
+          ? { followUpDate: followUpDate ? new Date(followUpDate) : null }
+          : {}),
         ...(deadline !== undefined
           ? { deadline: deadline ? new Date(deadline) : null }
           : {}),

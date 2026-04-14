@@ -312,3 +312,42 @@ Stage Summary:
 - Template: 3-sheet Excel file with samples, instructions, and valid values reference
 - Schema: Proposal model now includes winningChances and focalPerson fields
 - Files changed: prisma/schema.prisma, src/app/api/import-proposals/route.ts, src/components/import-dialog.tsx, src/components/crm/proposals.tsx
+
+---
+Task ID: 8-fix-missing-fields
+Agent: Main
+Task: Add Follow Up Date field and surface Winning Chances + Focal Person in proposal form, table, and import
+
+Work Log:
+- Added `followUpDate DateTime?` to Proposal model in prisma/schema.prisma
+- Pushed schema to Neon PostgreSQL and regenerated Prisma client
+- Updated /api/proposals/route.ts POST handler to accept and save winningChances, focalPerson, followUpDate
+- Updated /api/proposals/[id]/route.ts PUT handler to accept and update winningChances, focalPerson, followUpDate
+- Updated proposals.tsx:
+  - Extended Proposal interface with winningChances, focalPerson, followUpDate fields
+  - Added WINNING_CHANCES_OPTIONS and WINNING_CHANCES_COLORS constants
+  - Extended Zod schema with winningChances, focalPerson, followUpDate
+  - Added watchedWinningChances to useWatch hooks
+  - Updated form default values and resets for all 3 fields
+  - Updated saveMutation payload to include followUpDate formatting
+  - Updated openEditDialog to populate all 3 fields from proposal data
+  - Added Winning Chances (Select dropdown) and Focal Person (text input) to form dialog
+  - Added Follow Up Date (calendar date picker) to form dialog
+  - Added Win Chance, Focal Person, Follow Up columns to desktop table header and rows
+  - Updated mobile cards to show Win Chance, Focal Person, Follow Up, and Deadline
+  - Winning Chances shown as color-coded badges (Low=red, Medium=amber, High=green)
+- Updated import-proposals/route.ts:
+  - Added followUpDate column definition with aliases
+  - Added followUpDate validation (date parsing with error reporting)
+  - Added followUpDate to parsed row data response
+  - Added followUpDate to proposal create call
+  - Added Follow Up Date column to Excel template (all 3 sample rows)
+  - Updated column widths array (15 columns now)
+  - Updated Valid Values sheet to list Follow Up Date as a date field
+
+Stage Summary:
+- 3 previously hidden/missing fields now fully visible and editable: Winning Chances, Focal Person, Follow Up Date
+- Follow Up Date is a new database field (DateTime?)
+- All fields appear in: proposal form (create/edit), desktop table, mobile cards, import template
+- No lint errors, dev server compiles cleanly
+- Files changed: prisma/schema.prisma, src/app/api/proposals/route.ts, src/app/api/proposals/[id]/route.ts, src/app/api/import-proposals/route.ts, src/components/crm/proposals.tsx
