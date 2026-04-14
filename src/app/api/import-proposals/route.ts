@@ -206,7 +206,7 @@ function parseDate(value: string): Date | null {
   const isoDate = Date.parse(trimmed)
   if (!isNaN(isoDate)) {
     const d = new Date(isoDate)
-    if (d.getFullYear() >= 2000 && d.getFullYear() <= 2035) return d
+    if (d.getFullYear() >= 1990 && d.getFullYear() <= 2040) return d
   }
 
   // Try DD/MM/YYYY or DD-MM-YYYY
@@ -489,14 +489,29 @@ export async function POST(request: NextRequest) {
           clientId = newClientIds.get(clientName.toLowerCase().trim()) || ''
         }
 
-        // Try partial match in existing clients
+        // Try partial match in existing clients (min 3 chars, 60% length ratio)
         if (!clientId) {
-          for (const [n, id] of clientMap.entries()) {
-            if (n.includes(clientName.toLowerCase().trim()) || clientName.toLowerCase().trim().includes(n)) {
-              clientId = id
-              const matchName = allClients.find(c => c.id === id)?.name || n
-              rowWarnings.push(`Client "${clientName}" was matched to existing client "${matchName}" (partial match). Verify this is correct.`)
-              break
+          const cl = clientName.toLowerCase().trim()
+          if (cl.length >= 3) {
+            let bestMatch = ''
+            let bestScore = 0
+            let bestId = ''
+            for (const [n, id] of clientMap.entries()) {
+              if (n.includes(cl) || cl.includes(n)) {
+                const shorter = Math.min(n.length, cl.length)
+                const longer = Math.max(n.length, cl.length)
+                const score = shorter / longer
+                if (score >= 0.4 && score > bestScore) {
+                  bestScore = score
+                  bestMatch = n
+                  bestId = id
+                }
+              }
+            }
+            if (bestId) {
+              clientId = bestId
+              const matchName = allClients.find(c => c.id === bestId)?.name || bestMatch
+              rowWarnings.push(`Client "${clientName}" was matched to "${matchName}" (partial match). Verify this is correct.`)
             }
           }
         }
@@ -521,8 +536,8 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Create client only if no errors blocking it
-          if (rowErrors.length === 0) {
+          // Create client — auto-create even if other fields have errors (don't cascade)
+          if (rowErrors.length === 0 || rowErrors.every(e => e.column !== getDisplayColumnName('clientName'))) {
             try {
               const newClient = await db.client.create({
                 data: {
@@ -549,36 +564,47 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ── Validate: Assigned To (optional) ──
+      // ── Validate: Assigned To (optional — non-blocking, just warn) ──
       const memberName = (mappedData['assignedMemberName'] || '').toString().trim()
       let assignedMemberId = ''
 
       if (memberName) {
         assignedMemberId = memberMap.get(memberName.toLowerCase().trim()) || ''
         if (!assignedMemberId) {
-          // Try partial match
-          for (const [n, id] of memberMap.entries()) {
-            if (n.includes(memberName.toLowerCase().trim()) || memberName.toLowerCase().trim().includes(n)) {
-              assignedMemberId = id
-              const matchName = allMembers.find(m => m.id === id)?.name || n
-              rowWarnings.push(`Assigned member "${memberName}" was matched to "${matchName}" (partial match).`)
-              break
+          // Try partial match (min 3 chars, 60% length ratio)
+          const ml = memberName.toLowerCase().trim()
+          if (ml.length >= 3) {
+            let bestMatch = ''
+            let bestScore = 0
+            let bestId = ''
+            for (const [n, id] of memberMap.entries()) {
+              if (n.includes(ml) || ml.includes(n)) {
+                const shorter = Math.min(n.length, ml.length)
+                const longer = Math.max(n.length, ml.length)
+                const score = shorter / longer
+                if (score >= 0.4 && score > bestScore) {
+                  bestScore = score
+                  bestMatch = n
+                  bestId = id
+                }
+              }
+            }
+            if (bestId) {
+              assignedMemberId = bestId
+              const matchName = allMembers.find(m => m.id === bestId)?.name || bestMatch
+              rowWarnings.push(`Assigned member "${memberName}" matched to "${matchName}" (partial match).`)
             }
           }
         }
+        // Non-blocking: just warn if not found, don't block the entire row
         if (!assignedMemberId) {
           const suggestions = allMembers
-            .filter(m => m.isActive && m.name.toLowerCase().includes(memberName.toLowerCase().substring(0, 3)))
+            .filter(m => m.isActive && m.name.toLowerCase().includes(memberName.toLowerCase().substring(0, Math.min(3, memberName.length))))
             .map(m => m.name)
             .slice(0, 3)
-          const colDef = PROPOSAL_COLUMNS['assignedMemberName']
-          rowErrors.push({
-            row: rowNum,
-            column: getDisplayColumnName('assignedMemberName'),
-            value: memberName,
-            message: `Team member "${memberName}" not found in CRM.${suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : ' Make sure the member exists and is active.'}`,
-            expectedFormat: colDef.format,
-          })
+          rowWarnings.push(
+            `Assigned To: Team member "${memberName}" not found in CRM and was skipped.${suggestions.length > 0 ? ` Available: ${suggestions.join(', ')}` : ' No active team members found.'} You can assign later by editing the proposal.`
+          )
         }
       }
 
@@ -683,14 +709,29 @@ export async function POST(request: NextRequest) {
             areaId = newThematicAreaIds.get(areaName.toLowerCase()) || ''
           }
 
-          // Partial match existing
+          // Partial match existing (min 3 chars, 40% length ratio)
           if (!areaId) {
-            for (const [n, id] of thematicAreaMap.entries()) {
-              if (n.includes(areaName.toLowerCase()) || areaName.toLowerCase().includes(n)) {
-                areaId = id
-                const matchName = allThematicAreas.find(t => t.id === id)?.name || n
+            const al = areaName.toLowerCase()
+            if (al.length >= 3) {
+              let bestMatch = ''
+              let bestScore = 0
+              let bestId = ''
+              for (const [n, id] of thematicAreaMap.entries()) {
+                if (n.includes(al) || al.includes(n)) {
+                  const shorter = Math.min(n.length, al.length)
+                  const longer = Math.max(n.length, al.length)
+                  const score = shorter / longer
+                  if (score >= 0.4 && score > bestScore) {
+                    bestScore = score
+                    bestMatch = n
+                    bestId = id
+                  }
+                }
+              }
+              if (bestId) {
+                areaId = bestId
+                const matchName = allThematicAreas.find(t => t.id === bestId)?.name || bestMatch
                 rowWarnings.push(`Thematic area "${areaName}" matched to "${matchName}" (partial match).`)
-                break
               }
             }
           }
