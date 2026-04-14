@@ -1041,8 +1041,8 @@ export default function ProposalsPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         type="proposals"
-        title="Import Proposals from Excel"
-        description="Upload an Excel file (.xlsx) or CSV file to bulk import proposals. The system will auto-detect columns and validate your data."
+        title="Import Proposals — Consolidated"
+        description="Upload a single Excel/CSV file to import proposals. New clients and thematic areas are auto-created. Every error shows the exact field, your value, and the expected format."
       />
     </div>
   )

@@ -2,30 +2,128 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import * as XLSX from 'xlsx'
 
-// ── Column mapping: Excel header → internal field ──────────────────────────
-const PROPOSAL_COLUMNS: Record<string, string[]> = {
-  name: ['name', 'proposal name', 'proposal', 'title', 'project name', 'project title'],
-  rfpNumber: ['rfp number', 'rfp', 'rfp #', 'rfp#', 'tender number', 'tender no', 'tender #', 'tender', 'ref no', 'reference'],
-  clientName: ['client', 'client name', 'organization', 'company', 'customer', 'organisation'],
-  assignedMemberName: ['assigned to', 'assigned member', 'team member', 'member', 'owner', 'assigned', 'responsible'],
-  value: ['value', 'amount', 'value (pkr)', 'pkr', 'price', 'cost', 'budget', 'proposal value', 'total value'],
-  status: ['status', 'proposal status', 'stage', 'state'],
-  remarks: ['remarks', 'notes', 'description', 'comments', 'details', 'observation'],
-  deadline: ['deadline', 'due date', 'closing date', 'submission deadline', 'last date'],
-  submissionDate: ['submission date', 'submitted date', 'submitted on', 'date submitted', 'submission'],
-  thematicAreas: ['thematic area', 'thematic areas', 'sector', 'category', 'categories', 'domain', 'area'],
-  winningChances: ['winning chances', 'probability', 'win chance', 'chances', 'win probability', 'likelihood'],
-  focalPerson: ['focal person', 'contact person', 'poc', 'point of contact', 'contact'],
+// ── Column Definitions with expected format ──────────────────────────────
+// Each column has: aliases (for auto-matching), required flag, and format description
+
+const PROPOSAL_COLUMNS: Record<string, {
+  aliases: string[]
+  required: boolean
+  format: string
+  example: string
+  group: 'proposal' | 'client' | 'lookup'
+}> = {
+  name: {
+    aliases: ['proposal name', 'proposal', 'title', 'project name', 'project title'],
+    required: true,
+    format: 'Any text — the name/title of the proposal or tender',
+    example: 'IT Infrastructure Upgrade',
+    group: 'proposal',
+  },
+  rfpNumber: {
+    aliases: ['rfp number', 'rfp', 'rfp #', 'rfp#', 'tender number', 'tender no', 'tender #', 'tender', 'ref no', 'reference'],
+    required: false,
+    format: 'Any text — RFP or tender reference number',
+    example: 'RFP-2025-001',
+    group: 'proposal',
+  },
+  clientName: {
+    aliases: ['client', 'client name', 'organization', 'company', 'customer', 'organisation'],
+    required: true,
+    format: 'Text — name of the client/organization. If not found in CRM, it will be auto-created.',
+    example: 'Pakistan Telecommunication Company (PTCL)',
+    group: 'client',
+  },
+  clientAddress: {
+    aliases: ['client address', 'address', 'location', 'city', 'office address'],
+    required: false,
+    format: 'Any text — client address or city (used when auto-creating new clients)',
+    example: 'Islamabad',
+    group: 'client',
+  },
+  clientStatus: {
+    aliases: ['client status'],
+    required: false,
+    format: '"Active" or "Inactive" — client status (used when auto-creating new clients, default: Active)',
+    example: 'Active',
+    group: 'client',
+  },
+  assignedMemberName: {
+    aliases: ['assigned to', 'assigned member', 'team member', 'member', 'owner', 'assigned', 'responsible'],
+    required: false,
+    format: 'Exact name of an existing team member in the CRM',
+    example: 'Ahmed Khan',
+    group: 'lookup',
+  },
+  value: {
+    aliases: ['value', 'amount', 'value (pkr)', 'pkr', 'price', 'cost', 'budget', 'proposal value', 'total value'],
+    required: false,
+    format: 'Numeric value (e.g., 1500000 or 1,500,000) — proposal value in PKR',
+    example: '1500000',
+    group: 'proposal',
+  },
+  status: {
+    aliases: ['status', 'proposal status', 'stage', 'state'],
+    required: false,
+    format: 'One of: Submitted, In Process, In Evaluation, Pending, Won (default: In Process)',
+    example: 'In Process',
+    group: 'proposal',
+  },
+  thematicAreas: {
+    aliases: ['thematic area', 'thematic areas', 'sector', 'category', 'categories', 'domain', 'area'],
+    required: false,
+    format: 'Comma-separated names of thematic areas. If not found, they will be auto-created.',
+    example: 'IT & Technology, Healthcare',
+    group: 'lookup',
+  },
+  winningChances: {
+    aliases: ['winning chances', 'probability', 'win chance', 'chances', 'win probability', 'likelihood'],
+    required: false,
+    format: 'One of: Low, Medium, High (default: empty)',
+    example: 'Medium',
+    group: 'proposal',
+  },
+  focalPerson: {
+    aliases: ['focal person', 'contact person', 'poc', 'point of contact', 'contact'],
+    required: false,
+    format: 'Any text — the contact/focal person name',
+    example: 'Muhammad Ali',
+    group: 'proposal',
+  },
+  deadline: {
+    aliases: ['deadline', 'due date', 'closing date', 'submission deadline', 'last date'],
+    required: false,
+    format: 'Date in format: YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY',
+    example: '2025-06-30',
+    group: 'proposal',
+  },
+  submissionDate: {
+    aliases: ['submission date', 'submitted date', 'submitted on', 'date submitted', 'submission'],
+    required: false,
+    format: 'Date in format: YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY',
+    example: '2025-06-15',
+    group: 'proposal',
+  },
+  remarks: {
+    aliases: ['remarks', 'notes', 'description', 'comments', 'details', 'observation'],
+    required: false,
+    format: 'Any text — additional notes or remarks',
+    example: 'Urgent deadline, requires senior review',
+    group: 'proposal',
+  },
 }
 
 const VALID_STATUSES = ['Submitted', 'In Process', 'In Evaluation', 'Pending', 'Won']
+const VALID_CLIENT_STATUSES = ['Active', 'Inactive']
 const VALID_WINNING_CHANCES = ['Low', 'Medium', 'High']
+
+// ── Types ────────────────────────────────────────────────────────────────
 
 interface RowError {
   row: number
   column: string
   value: string
   message: string
+  expectedFormat: string
 }
 
 interface ParsedRow {
@@ -33,6 +131,7 @@ interface ParsedRow {
   data: Record<string, string>
   errors: RowError[]
   warnings: string[]
+  info: string[]
   valid: boolean
 }
 
@@ -44,7 +143,11 @@ interface ImportResult {
   errors: RowError[]
   rowDetails: ParsedRow[]
   createdIds: string[]
+  clientsCreated: number
+  thematicAreasCreated: number[]
 }
+
+// ── Helper Functions ─────────────────────────────────────────────────────
 
 function normalizeHeader(header: string): string {
   return header.toString().toLowerCase().trim().replace(/[_\-\.]/g, ' ').replace(/\s+/g, ' ')
@@ -52,8 +155,8 @@ function normalizeHeader(header: string): string {
 
 function matchColumn(excelHeader: string): string | null {
   const normalized = normalizeHeader(excelHeader)
-  for (const [field, aliases] of Object.entries(PROPOSAL_COLUMNS)) {
-    for (const alias of aliases) {
+  for (const [field, config] of Object.entries(PROPOSAL_COLUMNS)) {
+    for (const alias of config.aliases) {
       if (normalized === alias || normalized.includes(alias) || alias.includes(normalized)) return field
     }
   }
@@ -63,18 +166,53 @@ function matchColumn(excelHeader: string): string | null {
 function parseDate(value: string): Date | null {
   if (!value || value.trim() === '') return null
   const trimmed = value.trim()
+
+  // Try ISO / native parse
   const isoDate = Date.parse(trimmed)
-  if (!isNaN(isoDate)) { const d = new Date(isoDate); if (d.getFullYear() >= 2000 && d.getFullYear() <= 2035) return d }
+  if (!isNaN(isoDate)) {
+    const d = new Date(isoDate)
+    if (d.getFullYear() >= 2000 && d.getFullYear() <= 2035) return d
+  }
+
+  // Try DD/MM/YYYY or DD-MM-YYYY
   const dmy = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
-  if (dmy) { const day = parseInt(dmy[1]); const month = parseInt(dmy[2]) - 1; let year = parseInt(dmy[3]); if (year < 100) year += 2000; const d = new Date(year, month, day); if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) return d }
+  if (dmy) {
+    const day = parseInt(dmy[1])
+    const month = parseInt(dmy[2]) - 1
+    let year = parseInt(dmy[3])
+    if (year < 100) year += 2000
+    const d = new Date(year, month, day)
+    if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) return d
+  }
+
+  // Try DD MMM YY(YY) (e.g. 15-Jun-2025)
   const mmm = trimmed.match(/^(\d{1,2})\s+([a-zA-Z]{3})\s+(\d{2,4})$/i)
-  if (mmm) { const day = parseInt(mmm[1]); const mi = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(mmm[2].toLowerCase()); if (mi !== -1) { let year = parseInt(mmm[3]); if (year < 100) year += 2000; return new Date(year, mi, day) } }
+  if (mmm) {
+    const day = parseInt(mmm[1])
+    const mi = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(mmm[2].toLowerCase())
+    if (mi !== -1) {
+      let year = parseInt(mmm[3])
+      if (year < 100) year += 2000
+      return new Date(year, mi, day)
+    }
+  }
+
+  // Try YYYY/MM/DD
+  const ymd = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/)
+  if (ymd) {
+    const year = parseInt(ymd[1])
+    const month = parseInt(ymd[2]) - 1
+    const day = parseInt(ymd[3])
+    const d = new Date(year, month, day)
+    if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) return d
+  }
+
   return null
 }
 
 function parseNumber(value: string): number | null {
   if (!value || value.trim() === '') return 0
-  const cleaned = value.toString().replace(/[,，\s₨Rs.PKRAED]/g, '').trim()
+  const cleaned = value.toString().replace(/[,，\s₨Rs.PKRAEDaed]/g, '').trim()
   const num = parseFloat(cleaned)
   return isNaN(num) ? null : num
 }
@@ -82,159 +220,700 @@ function parseNumber(value: string): number | null {
 function normalizeStatus(value: string): string | null {
   if (!value || value.trim() === '') return 'In Process'
   const v = value.trim()
-  for (const status of VALID_STATUSES) { if (v.toLowerCase() === status.toLowerCase()) return status }
-  const map: Record<string, string> = { submitted:'Submitted', inprocess:'In Process', 'in process':'In Process', wip:'In Process', progress:'In Process', evaluation:'In Evaluation', evaluating:'In Evaluation', review:'In Evaluation', pending:'Pending', hold:'Pending', won:'Won', awarded:'Won', success:'Won', approved:'Won', lost:'Pending', rejected:'Pending' }
-  for (const [key, status] of Object.entries(map)) { if (v.toLowerCase().includes(key)) return status }
+  for (const status of VALID_STATUSES) {
+    if (v.toLowerCase() === status.toLowerCase()) return status
+  }
+  const map: Record<string, string> = {
+    submitted: 'Submitted',
+    inprocess: 'In Process',
+    'in process': 'In Process',
+    wip: 'In Process',
+    progress: 'In Process',
+    evaluation: 'In Evaluation',
+    evaluating: 'In Evaluation',
+    review: 'In Evaluation',
+    pending: 'Pending',
+    hold: 'Pending',
+    won: 'Won',
+    awarded: 'Won',
+    success: 'Won',
+    approved: 'Won',
+    lost: 'Pending',
+    rejected: 'Pending',
+  }
+  for (const [key, status] of Object.entries(map)) {
+    if (v.toLowerCase().includes(key)) return status
+  }
+  return null
+}
+
+function normalizeClientStatus(value: string): string | null {
+  if (!value || value.trim() === '') return 'Active'
+  const v = value.trim().toLowerCase()
+  for (const status of VALID_CLIENT_STATUSES) {
+    if (v === status.toLowerCase()) return status
+  }
+  if (['active', 'yes', 'true', '1', 'enabled', 'on'].includes(v)) return 'Active'
+  if (['inactive', 'no', 'false', '0', 'disabled', 'off', 'deactivated'].includes(v)) return 'Inactive'
   return null
 }
 
 function normalizeWinningChances(value: string): string {
   if (!value || value.trim() === '') return ''
   const v = value.trim().toLowerCase()
-  const map: Record<string, string> = { low:'Low', medium:'Medium', med:'Medium', moderate:'Medium', avg:'Average', average:'Average', high:'High', strong:'High', good:'High', best:'High' }
-  for (const [key, val] of Object.entries(map)) { if (v === key || v.includes(key)) return val }
+  const map: Record<string, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    med: 'Medium',
+    moderate: 'Medium',
+    high: 'High',
+    strong: 'High',
+    good: 'High',
+    best: 'High',
+  }
+  for (const [key, val] of Object.entries(map)) {
+    if (v === key || v.includes(key)) return val
+  }
   return value.trim()
 }
+
+function getDisplayColumnName(field: string): string {
+  const col = PROPOSAL_COLUMNS[field]
+  if (!col) return field
+  // Return the first alias capitalized
+  return col.aliases[0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+// ── POST: Consolidated Import ────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    if (!file) return NextResponse.json({ error: 'No file uploaded. Please select an Excel (.xlsx) or CSV file.' }, { status: 400 })
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel','text/csv','application/csv']
-    if (!validTypes.includes(file.type) && !['xlsx','xls','csv'].includes(ext || '')) return NextResponse.json({ error: 'Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.' }, { status: 400 })
-    if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'File too large. Maximum size is 10 MB.' }, { status: 400 })
 
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file uploaded. Please select an Excel (.xlsx) or CSV file.' },
+        { status: 400 }
+      )
+    }
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
+      'application/csv',
+    ]
+    if (!validTypes.includes(file.type) && !['xlsx', 'xls', 'csv'].includes(ext || '')) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.' },
+        { status: 400 }
+      )
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 10 MB.' },
+        { status: 400 }
+      )
+    }
+
+    // Parse the file
     const buffer = Buffer.from(await file.arrayBuffer())
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
     const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' })
 
-    if (rows.length === 0) return NextResponse.json({ error: 'The uploaded file is empty. Please ensure your Excel/CSV file has data rows.' }, { status: 400 })
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: 'The uploaded file is empty. Please ensure your Excel/CSV file has data rows with headers in the first row.' },
+        { status: 400 }
+      )
+    }
 
+    // Detect column mapping from headers
     const excelHeaders = Object.keys(rows[0])
     const columnMap: Record<string, string> = {}
     const unmatchedHeaders: string[] = []
-    for (const header of excelHeaders) { const field = matchColumn(header); if (field) columnMap[header] = field; else unmatchedHeaders.push(header) }
-    if (!columnMap && Object.keys(rows[0]).length === 0) return NextResponse.json({ error: 'Could not read any columns from the file. Make sure the first row contains column headers.' }, { status: 400 })
-    const hasNameColumn = Object.values(columnMap).includes('name')
-    const hasClientColumn = Object.values(columnMap).includes('clientName')
 
+    for (const header of excelHeaders) {
+      const field = matchColumn(header)
+      if (field) {
+        columnMap[header] = field
+      } else {
+        unmatchedHeaders.push(header)
+      }
+    }
+
+    // Check required columns
+    const mappedFields = Object.values(columnMap)
+    const missingRequired: string[] = []
+    for (const [field, config] of Object.entries(PROPOSAL_COLUMNS)) {
+      if (config.required && !mappedFields.includes(field)) {
+        missingRequired.push(getDisplayColumnName(field))
+      }
+    }
+
+    if (missingRequired.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Missing required columns: ${missingRequired.join(', ')}. Please add these columns to your file and try again.`,
+          missingColumns: missingRequired,
+          columnMapping: columnMap,
+          unmatchedHeaders,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Fetch reference data
     const allClients = await db.client.findMany({ select: { id: true, name: true } })
-    const allMembers = await db.teamMember.findMany({ where: { isActive: true }, select: { id: true, name: true } })
+    const allMembers = await db.teamMember.findMany({ select: { id: true, name: true, isActive: true } })
     const allThematicAreas = await db.thematicArea.findMany({ select: { id: true, name: true } })
+
     const clientMap = new Map(allClients.map(c => [c.name.toLowerCase().trim(), c.id]))
-    const memberMap = new Map(allMembers.map(m => [m.name.toLowerCase().trim(), m.id]))
+    const memberMap = new Map(allMembers.filter(m => m.isActive).map(m => [m.name.toLowerCase().trim(), m.id]))
     const thematicAreaMap = new Map(allThematicAreas.map(t => [t.name.toLowerCase().trim(), t.id]))
 
-    const result: ImportResult = { total: rows.length, success: 0, failed: 0, skipped: 0, errors: [], rowDetails: [], createdIds: [] }
+    const result: ImportResult = {
+      total: rows.length,
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [],
+      rowDetails: [],
+      createdIds: [],
+      clientsCreated: 0,
+      thematicAreasCreated: [],
+    }
+
+    // Track auto-created items within this import to avoid duplicates
+    const newClientIds = new Map<string, string>() // lowercase name → id
+    const newThematicAreaIds = new Map<string, string>() // lowercase name → id
 
     for (let i = 0; i < rows.length; i++) {
-      const rawRow = rows[i]; const rowNum = i + 2; const rowErrors: RowError[] = []; const rowWarnings: string[] = []; const mappedData: Record<string, string> = {}
-      for (const [excelHeader, field] of Object.entries(columnMap)) { const rawValue = rawRow[excelHeader]; mappedData[field] = rawValue !== undefined && rawValue !== null ? String(rawValue) : '' }
+      const rawRow = rows[i]
+      const rowNum = i + 2 // Excel row number (1-based, +1 for header)
+      const rowErrors: RowError[] = []
+      const rowWarnings: string[] = []
+      const rowInfo: string[] = []
+      const mappedData: Record<string, string> = {}
 
-      const name = (mappedData['name'] || '').toString().trim()
-      if (!name) { if (!hasNameColumn) { rowErrors.push({ row: rowNum, column: 'Proposal Name', value: '(column not found)', message: 'Required column "Proposal Name" is missing from the file.' }) } else { rowErrors.push({ row: rowNum, column: 'Proposal Name', value: '', message: 'Proposal Name is required but this row is empty.' }) } }
-
-      const clientName = (mappedData['clientName'] || '').toString().trim()
-      let clientId = ''
-      if (!clientName) { if (!hasClientColumn) { rowErrors.push({ row: rowNum, column: 'Client', value: '(column not found)', message: 'Required column "Client" is missing from the file.' }) } else { rowErrors.push({ row: rowNum, column: 'Client', value: '', message: 'Client is required but this row is empty.' }) } }
-      else {
-        clientId = clientMap.get(clientName.toLowerCase().trim()) || ''
-        if (!clientId) { for (const [n, id] of clientMap.entries()) { if (n.includes(clientName.toLowerCase().trim()) || clientName.toLowerCase().trim().includes(n)) { clientId = id; rowWarnings.push(`Client "${clientName}" was matched to "${n}" (partial match)`); break } } }
-        if (!clientId) { const suggestions = allClients.filter(c => c.name.toLowerCase().includes(clientName.toLowerCase().substring(0, 5))).map(c => c.name).slice(0, 3); rowErrors.push({ row: rowNum, column: 'Client', value: clientName, message: `Client "${clientName}" not found.${suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : ' Please create this client first or check the spelling.'}` }) }
+      // Map all columns
+      for (const [excelHeader, field] of Object.entries(columnMap)) {
+        const rawValue = rawRow[excelHeader]
+        mappedData[field] = rawValue !== undefined && rawValue !== null ? String(rawValue) : ''
       }
 
+      // ── Validate: Proposal Name (required) ──
+      const name = (mappedData['name'] || '').toString().trim()
+      if (!name) {
+        const colDef = PROPOSAL_COLUMNS['name']
+        rowErrors.push({
+          row: rowNum,
+          column: getDisplayColumnName('name'),
+          value: '',
+          message: 'Proposal Name is required but this cell is empty.',
+          expectedFormat: colDef.format,
+        })
+      } else if (name.length > 500) {
+        const colDef = PROPOSAL_COLUMNS['name']
+        rowErrors.push({
+          row: rowNum,
+          column: getDisplayColumnName('name'),
+          value: name.substring(0, 50) + '...',
+          message: `Proposal Name is too long (${name.length} characters). Maximum is 500 characters.`,
+          expectedFormat: colDef.format,
+        })
+      }
+
+      // ── Validate: Client (required) — auto-create if not found ──
+      const clientName = (mappedData['clientName'] || '').toString().trim()
+      const clientAddress = (mappedData['clientAddress'] || '').toString().trim()
+      const clientStatusRaw = (mappedData['clientStatus'] || '').toString().trim()
+
+      let clientId = ''
+
+      if (!clientName) {
+        const colDef = PROPOSAL_COLUMNS['clientName']
+        rowErrors.push({
+          row: rowNum,
+          column: getDisplayColumnName('clientName'),
+          value: '',
+          message: 'Client Name is required but this cell is empty.',
+          expectedFormat: colDef.format,
+        })
+      } else {
+        // Try exact match in existing clients
+        clientId = clientMap.get(clientName.toLowerCase().trim()) || ''
+
+        // Try exact match in newly created clients during this import
+        if (!clientId) {
+          clientId = newClientIds.get(clientName.toLowerCase().trim()) || ''
+        }
+
+        // Try partial match in existing clients
+        if (!clientId) {
+          for (const [n, id] of clientMap.entries()) {
+            if (n.includes(clientName.toLowerCase().trim()) || clientName.toLowerCase().trim().includes(n)) {
+              clientId = id
+              const matchName = allClients.find(c => c.id === id)?.name || n
+              rowWarnings.push(`Client "${clientName}" was matched to existing client "${matchName}" (partial match). Verify this is correct.`)
+              break
+            }
+          }
+        }
+
+        // Auto-create client if not found
+        if (!clientId) {
+          // Validate client status if provided
+          let resolvedClientStatus = 'Active'
+          if (clientStatusRaw) {
+            const normalized = normalizeClientStatus(clientStatusRaw)
+            if (!normalized) {
+              const colDef = PROPOSAL_COLUMNS['clientStatus']
+              rowErrors.push({
+                row: rowNum,
+                column: getDisplayColumnName('clientStatus'),
+                value: clientStatusRaw,
+                message: `Invalid client status "${clientStatusRaw}". A new client "${clientName}" needs to be created, but the status is not recognized.`,
+                expectedFormat: colDef.format,
+              })
+            } else {
+              resolvedClientStatus = normalized
+            }
+          }
+
+          // Create client only if no errors blocking it
+          if (rowErrors.length === 0) {
+            try {
+              const newClient = await db.client.create({
+                data: {
+                  name: clientName,
+                  address: clientAddress || '',
+                  status: resolvedClientStatus,
+                },
+              })
+              clientId = newClient.id
+              clientMap.set(clientName.toLowerCase().trim(), newClient.id)
+              newClientIds.set(clientName.toLowerCase().trim(), newClient.id)
+              result.clientsCreated++
+              rowInfo.push(`New client "${clientName}" was automatically created.`)
+            } catch (dbError) {
+              rowErrors.push({
+                row: rowNum,
+                column: getDisplayColumnName('clientName'),
+                value: clientName,
+                message: `Failed to auto-create client "${clientName}": ${dbError instanceof Error ? dbError.message : 'Database error'}`,
+                expectedFormat: PROPOSAL_COLUMNS['clientName'].format,
+              })
+            }
+          }
+        }
+      }
+
+      // ── Validate: Assigned To (optional) ──
       const memberName = (mappedData['assignedMemberName'] || '').toString().trim()
       let assignedMemberId = ''
-      if (memberName) { assignedMemberId = memberMap.get(memberName.toLowerCase().trim()) || ''; if (!assignedMemberId) { for (const [n, id] of memberMap.entries()) { if (n.includes(memberName.toLowerCase().trim()) || memberName.toLowerCase().trim().includes(n)) { assignedMemberId = id; rowWarnings.push(`Member "${memberName}" matched to "${n}" (partial match)`); break } } } if (!assignedMemberId) { const suggestions = allMembers.filter(m => m.name.toLowerCase().includes(memberName.toLowerCase().substring(0, 3))).map(m => m.name).slice(0, 3); rowErrors.push({ row: rowNum, column: 'Assigned To', value: memberName, message: `Team member "${memberName}" not found.${suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : ' This member may be inactive.'}` }) } }
 
-      const valueRaw = (mappedData['value'] || '').toString(); let value = 0
-      if (valueRaw.trim()) { const parsed = parseNumber(valueRaw); if (parsed === null) { rowErrors.push({ row: rowNum, column: 'Value', value: valueRaw, message: `Invalid number "${valueRaw}". Use a plain number.` }) } else { value = parsed } }
+      if (memberName) {
+        assignedMemberId = memberMap.get(memberName.toLowerCase().trim()) || ''
+        if (!assignedMemberId) {
+          // Try partial match
+          for (const [n, id] of memberMap.entries()) {
+            if (n.includes(memberName.toLowerCase().trim()) || memberName.toLowerCase().trim().includes(n)) {
+              assignedMemberId = id
+              const matchName = allMembers.find(m => m.id === id)?.name || n
+              rowWarnings.push(`Assigned member "${memberName}" was matched to "${matchName}" (partial match).`)
+              break
+            }
+          }
+        }
+        if (!assignedMemberId) {
+          const suggestions = allMembers
+            .filter(m => m.isActive && m.name.toLowerCase().includes(memberName.toLowerCase().substring(0, 3)))
+            .map(m => m.name)
+            .slice(0, 3)
+          const colDef = PROPOSAL_COLUMNS['assignedMemberName']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('assignedMemberName'),
+            value: memberName,
+            message: `Team member "${memberName}" not found in CRM.${suggestions.length > 0 ? ` Did you mean: ${suggestions.join(', ')}?` : ' Make sure the member exists and is active.'}`,
+            expectedFormat: colDef.format,
+          })
+        }
+      }
 
-      const statusRaw = (mappedData['status'] || '').toString().trim(); let status = 'In Process'
-      if (statusRaw) { const normalized = normalizeStatus(statusRaw); if (!normalized) { rowErrors.push({ row: rowNum, column: 'Status', value: statusRaw, message: `Invalid status "${statusRaw}". Allowed: ${VALID_STATUSES.join(', ')}.` }) } else { status = normalized; if (normalized !== statusRaw && statusRaw.toLowerCase() !== normalized.toLowerCase()) rowWarnings.push(`Status "${statusRaw}" auto-corrected to "${normalized}"`) } }
+      // ── Validate: Value (optional) ──
+      const valueRaw = (mappedData['value'] || '').toString()
+      let value = 0
+      if (valueRaw.trim()) {
+        const parsed = parseNumber(valueRaw)
+        if (parsed === null) {
+          const colDef = PROPOSAL_COLUMNS['value']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('value'),
+            value: valueRaw,
+            message: `"${valueRaw}" is not a valid number. Remove currency symbols, commas, or text.`,
+            expectedFormat: colDef.format,
+          })
+        } else {
+          value = parsed
+        }
+      }
 
-      const winningChancesRaw = (mappedData['winningChances'] || '').toString().trim(); let winningChances = ''
-      if (winningChancesRaw) { winningChances = normalizeWinningChances(winningChancesRaw); if (winningChances && !VALID_WINNING_CHANCES.includes(winningChances)) rowWarnings.push(`Winning chances "${winningChancesRaw}" set as-is (not Low/Medium/High)`) }
+      // ── Validate: Status (optional) ──
+      const statusRaw = (mappedData['status'] || '').toString().trim()
+      let status = 'In Process'
+      if (statusRaw) {
+        const normalized = normalizeStatus(statusRaw)
+        if (!normalized) {
+          const colDef = PROPOSAL_COLUMNS['status']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('status'),
+            value: statusRaw,
+            message: `"${statusRaw}" is not a recognized status.`,
+            expectedFormat: colDef.format,
+          })
+        } else {
+          status = normalized
+          if (normalized !== statusRaw && statusRaw.toLowerCase() !== normalized.toLowerCase()) {
+            rowWarnings.push(`Status "${statusRaw}" was auto-corrected to "${normalized}".`)
+          }
+        }
+      }
 
-      const deadlineRaw = (mappedData['deadline'] || '').toString(); let deadline: Date | null = null
-      if (deadlineRaw.trim()) { deadline = parseDate(deadlineRaw); if (!deadline) rowErrors.push({ row: rowNum, column: 'Deadline', value: deadlineRaw, message: `Invalid date "${deadlineRaw}". Use DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD.` }) }
+      // ── Validate: Winning Chances (optional) ──
+      const winningChancesRaw = (mappedData['winningChances'] || '').toString().trim()
+      let winningChances = ''
+      if (winningChancesRaw) {
+        winningChances = normalizeWinningChances(winningChancesRaw)
+        if (!VALID_WINNING_CHANCES.includes(winningChances)) {
+          const colDef = PROPOSAL_COLUMNS['winningChances']
+          rowWarnings.push(
+            `Winning Chances "${winningChancesRaw}" was saved as-is but may not be a standard value. ${colDef.format}`
+          )
+        }
+      }
 
-      const submissionDateRaw = (mappedData['submissionDate'] || '').toString(); let submissionDate: Date | null = null
-      if (submissionDateRaw.trim()) { submissionDate = parseDate(submissionDateRaw); if (!submissionDate) rowErrors.push({ row: rowNum, column: 'Submission Date', value: submissionDateRaw, message: `Invalid date "${submissionDateRaw}". Use DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD.` }) }
+      // ── Validate: Deadline (optional) ──
+      const deadlineRaw = (mappedData['deadline'] || '').toString()
+      let deadline: Date | null = null
+      if (deadlineRaw.trim()) {
+        deadline = parseDate(deadlineRaw)
+        if (!deadline) {
+          const colDef = PROPOSAL_COLUMNS['deadline']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('deadline'),
+            value: deadlineRaw,
+            message: `"${deadlineRaw}" is not a recognizable date format.`,
+            expectedFormat: colDef.format,
+          })
+        }
+      }
 
-      const areasRaw = (mappedData['thematicAreas'] || '').toString().trim(); const thematicAreaIds: string[] = []
-      if (areasRaw) { const areaNames = areasRaw.split(/[,;|]/).map(s => s.trim()).filter(Boolean); for (const areaName of areaNames) { let areaId = thematicAreaMap.get(areaName.toLowerCase()) || ''; if (!areaId) { for (const [n, id] of thematicAreaMap.entries()) { if (n.includes(areaName.toLowerCase()) || areaName.toLowerCase().includes(n)) { areaId = id; break } } } if (areaId) thematicAreaIds.push(areaId); else rowWarnings.push(`Thematic area "${areaName}" not found. Available: ${allThematicAreas.map(t => t.name).join(', ')}`) } }
+      // ── Validate: Submission Date (optional) ──
+      const submissionDateRaw = (mappedData['submissionDate'] || '').toString()
+      let submissionDate: Date | null = null
+      if (submissionDateRaw.trim()) {
+        submissionDate = parseDate(submissionDateRaw)
+        if (!submissionDate) {
+          const colDef = PROPOSAL_COLUMNS['submissionDate']
+          rowErrors.push({
+            row: rowNum,
+            column: getDisplayColumnName('submissionDate'),
+            value: submissionDateRaw,
+            message: `"${submissionDateRaw}" is not a recognizable date format.`,
+            expectedFormat: colDef.format,
+          })
+        }
+      }
 
+      // ── Validate: Thematic Areas (optional) — auto-create if not found ──
+      const areasRaw = (mappedData['thematicAreas'] || '').toString().trim()
+      const thematicAreaIds: string[] = []
+      if (areasRaw) {
+        const areaNames = areasRaw.split(/[,;|]/).map(s => s.trim()).filter(Boolean)
+        for (const areaName of areaNames) {
+          let areaId = thematicAreaMap.get(areaName.toLowerCase()) || ''
+
+          // Check newly created areas
+          if (!areaId) {
+            areaId = newThematicAreaIds.get(areaName.toLowerCase()) || ''
+          }
+
+          // Partial match existing
+          if (!areaId) {
+            for (const [n, id] of thematicAreaMap.entries()) {
+              if (n.includes(areaName.toLowerCase()) || areaName.toLowerCase().includes(n)) {
+                areaId = id
+                const matchName = allThematicAreas.find(t => t.id === id)?.name || n
+                rowWarnings.push(`Thematic area "${areaName}" matched to "${matchName}" (partial match).`)
+                break
+              }
+            }
+          }
+
+          // Auto-create if not found
+          if (!areaId) {
+            try {
+              const newArea = await db.thematicArea.create({
+                data: {
+                  name: areaName,
+                  color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+                  sortOrder: allThematicAreas.length + result.thematicAreasCreated.length,
+                },
+              })
+              areaId = newArea.id
+              thematicAreaMap.set(areaName.toLowerCase(), newArea.id)
+              newThematicAreaIds.set(areaName.toLowerCase(), newArea.id)
+              result.thematicAreasCreated.push(newArea.id)
+              rowInfo.push(`New thematic area "${areaName}" was automatically created.`)
+            } catch {
+              rowWarnings.push(`Thematic area "${areaName}" could not be auto-created (may already exist). Skipping it.`)
+            }
+          }
+
+          if (areaId) {
+            thematicAreaIds.push(areaId)
+          }
+        }
+      }
+
+      // Other fields
       const focalPerson = (mappedData['focalPerson'] || '').toString().trim()
       const remarks = (mappedData['remarks'] || '').toString().trim()
       const rfpNumber = (mappedData['rfpNumber'] || '').toString().trim()
 
-      const parsedRow: ParsedRow = { row: rowNum, data: { name, clientName, assignedMemberName: memberName, value: String(value), status, remarks, focalPerson, rfpNumber, deadline: deadline ? deadline.toISOString().split('T')[0] : '', submissionDate: submissionDate ? submissionDate.toISOString().split('T')[0] : '', thematicAreas: areasRaw, winningChances }, errors: rowErrors, warnings: rowWarnings, valid: rowErrors.length === 0 }
+      // Build parsed row for response
+      const parsedRow: ParsedRow = {
+        row: rowNum,
+        data: {
+          name,
+          rfpNumber,
+          clientName,
+          clientAddress,
+          assignedMemberName: memberName,
+          value: String(value),
+          status,
+          thematicAreas: areasRaw,
+          winningChances,
+          focalPerson,
+          deadline: deadline ? deadline.toISOString().split('T')[0] : '',
+          submissionDate: submissionDate ? submissionDate.toISOString().split('T')[0] : '',
+          remarks,
+        },
+        errors: rowErrors,
+        warnings: rowWarnings,
+        info: rowInfo,
+        valid: rowErrors.length === 0,
+      }
       result.rowDetails.push(parsedRow)
 
-      if (rowErrors.length === 0) {
+      // ── Create proposal if no errors ──
+      if (rowErrors.length === 0 && clientId) {
         try {
-          const proposal = await db.proposal.create({ data: { name, rfpNumber, clientId, assignedMemberId, value, status, remarks, deadline, submissionDate, winningChances, focalPerson, thematicAreas: thematicAreaIds.length > 0 ? { create: thematicAreaIds.map(id => ({ thematicAreaId: id })) } : undefined } })
-          result.success++; result.createdIds.push(proposal.id)
+          const proposal = await db.proposal.create({
+            data: {
+              name,
+              rfpNumber,
+              clientId,
+              assignedMemberId,
+              value,
+              status,
+              winningChances,
+              focalPerson,
+              remarks,
+              deadline,
+              submissionDate,
+              thematicAreas:
+                thematicAreaIds.length > 0
+                  ? { create: thematicAreaIds.map((id) => ({ thematicAreaId: id })) }
+                  : undefined,
+            },
+          })
+          result.success++
+          result.createdIds.push(proposal.id)
         } catch (error) {
-          result.failed++; const errorMsg = error instanceof Error ? error.message : 'Database error'; rowErrors.push({ row: rowNum, column: 'Database', value: name, message: `Failed to save: ${errorMsg}` }); parsedRow.errors = rowErrors; parsedRow.valid = false
+          result.failed++
+          const errorMsg = error instanceof Error ? error.message : 'Database error'
+          rowErrors.push({
+            row: rowNum,
+            column: 'Database',
+            value: name,
+            message: `Failed to save proposal: ${errorMsg}`,
+            expectedFormat: 'Contact your administrator if this persists.',
+          })
+          parsedRow.errors = rowErrors
+          parsedRow.valid = false
         }
-      } else { result.failed++ }
+      } else {
+        result.failed++
+      }
     }
 
-    return NextResponse.json({ ...result, columnMapping: columnMap, unmatchedHeaders, message: `Import complete: ${result.success} of ${result.total} proposals imported.${result.failed > 0 ? ` ${result.failed} rows had errors.` : ''}` })
+    // Build message
+    const parts: string[] = []
+    parts.push(`${result.success} of ${result.total} proposal${result.total !== 1 ? 's' : ''} imported`)
+    if (result.clientsCreated > 0) parts.push(`${result.clientsCreated} new client${result.clientsCreated !== 1 ? 's' : ''} auto-created`)
+    if (result.thematicAreasCreated.length > 0) parts.push(`${result.thematicAreasCreated.length} new thematic area${result.thematicAreasCreated.length !== 1 ? 's' : ''} auto-created`)
+    if (result.failed > 0) parts.push(`${result.failed} row${result.failed !== 1 ? 's' : ''} with errors`)
+
+    return NextResponse.json({
+      ...result,
+      columnMapping: columnMap,
+      unmatchedHeaders,
+      message: `Import complete: ${parts.join(', ')}.`,
+    })
   } catch (error) {
     console.error('[Proposal Import] Error:', error)
-    return NextResponse.json({ error: 'Failed to process import: ' + (error instanceof Error ? error.message : 'Unknown error') }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to process import: ' + (error instanceof Error ? error.message : 'Unknown error') },
+      { status: 500 }
+    )
   }
 }
 
-// GET /api/import-proposals — Template download if URL ends with /template, otherwise return info
+// ── GET: Download Template ───────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
   try {
-    const { pathname } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
 
-    if (pathname.endsWith('/template')) {
-      // Generate and download Excel template
+    if (searchParams.get('download') === 'template') {
+      // Fetch reference data for template examples
       const clients = await db.client.findMany({ select: { name: true }, orderBy: { name: 'asc' } })
       const members = await db.teamMember.findMany({ where: { isActive: true }, select: { name: true }, orderBy: { name: 'asc' } })
       const thematicAreas = await db.thematicArea.findMany({ select: { name: true }, orderBy: { sortOrder: 'asc' } })
 
       const wb = XLSX.utils.book_new()
+
+      // Sheet 1: Proposals (consolidated template)
       const templateData = [
-        { 'Proposal Name': 'IT Infrastructure Upgrade', 'RFP Number': 'RFP-2025-001', 'Client': clients[0]?.name || 'Client Name', 'Assigned To': members[0]?.name || 'Team Member Name', 'Value (PKR)': 1500000, 'Status': 'In Process', 'Thematic Area': thematicAreas[0]?.name || 'IT & Technology', 'Winning Chances': 'Medium', 'Focal Person': 'Contact Name', 'Deadline': '2025-06-30', 'Submission Date': '2025-06-15', 'Remarks': 'Sample proposal remarks' },
-        { 'Proposal Name': '(Add your proposals below)', 'RFP Number': '', 'Client': clients[1]?.name || '', 'Assigned To': members[1]?.name || '', 'Value (PKR)': '', 'Status': 'Submitted', 'Thematic Area': thematicAreas[1]?.name || '', 'Winning Chances': 'High', 'Focal Person': '', 'Deadline': '', 'Submission Date': '', 'Remarks': '' },
+        {
+          'Proposal Name': 'IT Infrastructure Upgrade',
+          'RFP Number': 'RFP-2025-001',
+          'Client Name': clients[0]?.name || 'ABC Corporation',
+          'Client Address': 'Islamabad',
+          'Client Status': 'Active',
+          'Assigned To': members[0]?.name || 'Team Member Name',
+          'Value (PKR)': 1500000,
+          'Status': 'In Process',
+          'Thematic Areas': thematicAreas[0]?.name || 'IT & Technology',
+          'Winning Chances': 'Medium',
+          'Focal Person': 'Muhammad Ali',
+          'Deadline': '2025-06-30',
+          'Submission Date': '2025-06-15',
+          'Remarks': 'Sample proposal remarks',
+        },
+        {
+          'Proposal Name': '(Add your proposals below — delete sample rows)',
+          'RFP Number': '',
+          'Client Name': clients[1]?.name || '',
+          'Client Address': '',
+          'Client Status': '',
+          'Assigned To': members[1]?.name || '',
+          'Value (PKR)': '',
+          'Status': 'Submitted',
+          'Thematic Areas': thematicAreas.length > 1 ? thematicAreas[1].name : '',
+          'Winning Chances': 'High',
+          'Focal Person': '',
+          'Deadline': '',
+          'Submission Date': '',
+          'Remarks': '',
+        },
+        {
+          'Proposal Name': 'New Client Example (will be auto-created)',
+          'RFP Number': 'RFP-2025-002',
+          'Client Name': 'Brand New Organization',
+          'Client Address': 'Lahore',
+          'Client Status': 'Active',
+          'Assigned To': '',
+          'Value (PKR)': 750000,
+          'Status': 'Pending',
+          'Thematic Areas': 'New Sector Name',
+          'Winning Chances': '',
+          'Focal Person': '',
+          'Deadline': '2025-07-31',
+          'Submission Date': '',
+          'Remarks': 'This client and sector will be created automatically',
+        },
       ]
+
       const ws = XLSX.utils.json_to_sheet(templateData)
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 45 }, // Proposal Name
+        { wch: 18 }, // RFP Number
+        { wch: 40 }, // Client Name
+        { wch: 25 }, // Client Address
+        { wch: 12 }, // Client Status
+        { wch: 22 }, // Assigned To
+        { wch: 15 }, // Value
+        { wch: 14 }, // Status
+        { wch: 35 }, // Thematic Areas
+        { wch: 15 }, // Winning Chances
+        { wch: 20 }, // Focal Person
+        { wch: 15 }, // Deadline
+        { wch: 18 }, // Submission Date
+        { wch: 40 }, // Remarks
+      ]
+
       XLSX.utils.book_append_sheet(wb, ws, 'Proposals')
 
-      const instructions = [
-        { 'Column': 'Proposal Name', 'Required': 'YES', 'Description': 'Name of the proposal/tender', 'Example': 'IT Infrastructure Upgrade', 'Valid Values': 'Any text' },
-        { 'Column': 'RFP Number', 'Required': 'No', 'Description': 'RFP or Tender reference number', 'Example': 'RFP-2025-001', 'Valid Values': 'Any text' },
-        { 'Column': 'Client', 'Required': 'YES', 'Description': 'Must match an existing client name in CRM', 'Example': 'See list', 'Valid Values': clients.map(c => c.name).join(', ') || 'N/A' },
-        { 'Column': 'Assigned To', 'Required': 'No', 'Description': 'Must match an existing team member name', 'Example': 'See list', 'Valid Values': members.map(m => m.name).join(', ') || 'N/A' },
-        { 'Column': 'Value (PKR)', 'Required': 'No', 'Description': 'Proposal value in PKR (numbers only)', 'Example': '1500000', 'Valid Values': 'Numeric value' },
-        { 'Column': 'Status', 'Required': 'No', 'Description': 'Current status', 'Example': 'In Process', 'Valid Values': VALID_STATUSES.join(', ') },
-        { 'Column': 'Thematic Area', 'Required': 'No', 'Description': 'Category/sector (comma for multiple)', 'Example': 'IT, Healthcare', 'Valid Values': thematicAreas.map(t => t.name).join(', ') || 'N/A' },
-        { 'Column': 'Winning Chances', 'Required': 'No', 'Description': 'Estimated probability', 'Example': 'Medium', 'Valid Values': 'Low, Medium, High' },
-        { 'Column': 'Focal Person', 'Required': 'No', 'Description': 'Contact person', 'Example': 'John Doe', 'Valid Values': 'Any text' },
-        { 'Column': 'Deadline', 'Required': 'No', 'Description': 'Proposal deadline date', 'Example': '2025-06-30', 'Valid Values': 'YYYY-MM-DD or DD/MM/YYYY' },
-        { 'Column': 'Submission Date', 'Required': 'No', 'Description': 'Date submitted', 'Example': '2025-06-15', 'Valid Values': 'YYYY-MM-DD or DD/MM/YYYY' },
-        { 'Column': 'Remarks', 'Required': 'No', 'Description': 'Additional notes', 'Example': 'Urgent deadline', 'Valid Values': 'Any text' },
-      ]
+      // Sheet 2: Column Instructions
+      const instructions = Object.entries(PROPOSAL_COLUMNS).map(([field, config]) => ({
+        'Column Name': getDisplayColumnName(field),
+        'Required': config.required ? 'YES' : 'No',
+        'Auto-Created': config.group === 'client' || config.group === 'lookup' ? 'Yes — auto-created if not found' : 'No',
+        'Description': config.format,
+        'Example': config.example,
+      }))
+
       const wsInstructions = XLSX.utils.json_to_sheet(instructions)
+      wsInstructions['!cols'] = [
+        { wch: 22 }, // Column Name
+        { wch: 10 }, // Required
+        { wch: 38 }, // Auto-Created
+        { wch: 65 }, // Description
+        { wch: 40 }, // Example
+      ]
       XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions')
+
+      // Sheet 3: Valid Values Reference
+      const validValues = [
+        { 'Field': 'Status (Proposal)', 'Valid Values': VALID_STATUSES.join(', '), 'Default': 'In Process' },
+        { 'Field': 'Winning Chances', 'Valid Values': VALID_WINNING_CHANCES.join(', '), 'Default': '(empty)' },
+        { 'Field': 'Client Status', 'Valid Values': VALID_CLIENT_STATUSES.join(', '), 'Default': 'Active (used when auto-creating)' },
+        { 'Field': 'Date Format', 'Valid Values': 'YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY', 'Example': '2025-06-30 or 30/06/2025' },
+        { 'Field': 'Value Format', 'Valid Values': 'Numbers only, commas optional', 'Example': '1500000 or 1,500,000' },
+        { 'Field': 'Thematic Areas', 'Valid Values': 'Comma-separated names, auto-created if not found', 'Example': 'IT, Healthcare, Education' },
+        { 'Field': 'Existing Clients', 'Valid Values': clients.map(c => c.name).join(', ') || 'No clients yet', 'Default': '(none)' },
+        { 'Field': 'Existing Team Members', 'Valid Values': members.map(m => m.name).join(', ') || 'No members yet', 'Default': '(none)' },
+        { 'Field': 'Existing Thematic Areas', 'Valid Values': thematicAreas.map(t => t.name).join(', ') || 'No areas yet', 'Default': '(none)' },
+      ]
+
+      const wsValues = XLSX.utils.json_to_sheet(validValues)
+      wsValues['!cols'] = [
+        { wch: 22 }, // Field
+        { wch: 70 }, // Valid Values
+        { wch: 35 }, // Default
+      ]
+      XLSX.utils.book_append_sheet(wb, wsValues, 'Valid Values')
 
       const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
       return new NextResponse(buffer, {
         status: 200,
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': 'attachment; filename="proposal_import_template.xlsx"',
+          'Content-Disposition': 'attachment; filename="crm_import_template.xlsx"',
         },
       })
     }
@@ -244,6 +923,14 @@ export async function GET(request: NextRequest) {
       supportedFormats: ['.xlsx', '.xls', '.csv'],
       maxFileSize: '10 MB',
       columns: Object.keys(PROPOSAL_COLUMNS),
+      features: [
+        'Auto-creates new clients if not found in CRM',
+        'Auto-creates new thematic areas if not found',
+        'Smart column matching (recognizes many header variations)',
+        'Date format detection (YYYY-MM-DD, DD/MM/YYYY, etc.)',
+        'Partial name matching for clients and team members',
+        'Row-by-row error reporting with exact field and format guidance',
+      ],
     })
   } catch (error) {
     console.error('[Import Template] Error:', error)

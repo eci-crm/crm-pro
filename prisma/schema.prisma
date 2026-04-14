@@ -49,6 +49,8 @@ model Proposal {
   assignedMember   TeamMember?           @relation(fields: [assignedMemberId], references: [id])
   value            Float                 @default(0)
   status           String                @default("In Process") // Submitted, In Process, In Evaluation, Pending, Won
+  winningChances   String                @default("")
+  focalPerson      String                @default("")
   remarks          String                @default("")
   deadline         DateTime?
   submissionDate   DateTime?

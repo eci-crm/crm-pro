@@ -274,3 +274,41 @@ Stage Summary:
 - Settings > Team: Create members with password, edit/reset passwords, delete members
 - Admin credentials: ahmed@crmpro.com / admin123 (Admin)
 - Vercel auto-deploy should trigger from GitHub push
+
+---
+Task ID: 7-consolidated-import
+Agent: Main
+Task: Fix broken Excel import and create consolidated single-file import with auto-client creation and precise field-level error reporting
+
+Work Log:
+- Diagnosed root cause: import-proposals/route.ts wrote `winningChances` and `focalPerson` fields to Prisma, but these columns didn't exist in the Proposal model schema → Prisma threw errors on every row
+- Added `winningChances String @default("")` and `focalPerson String @default("")` to Proposal model in prisma/schema.prisma
+- Pushed schema to Neon PostgreSQL database with `prisma db push --accept-data-loss`
+- Completely rewrote /api/import-proposals/route.ts as a consolidated import system:
+  - 14 column definitions with aliases, required flag, format description, and example values
+  - Auto-creates clients if Client Name is not found (using Client Address and Client Status columns)
+  - Auto-creates thematic areas if not found (with random color)
+  - Smart column matching (recognizes many header variations)
+  - Partial name matching for clients and team members with suggestions
+  - Row-by-row error reporting with: column name, user's value, error message, and expected format
+  - Status normalization with aliases (wip→In Process, awarded→Won, etc.)
+  - Date format detection (ISO, DD/MM/YYYY, DD-MM-YYYY, DD MMM YYYY)
+  - Number parsing with currency symbol cleanup
+  - Returns: total, success, failed, clientsCreated, thematicAreasCreated, rowDetails[]
+- Fixed template download: Changed from `/api/import-proposals/template` (404 in App Router) to `/api/import-proposals?download=template` query param
+- Enhanced template with 3 sheets: Proposals (with sample data including auto-create example), Instructions (all columns with format info), Valid Values (existing data references)
+- Updated import-dialog.tsx with:
+  - Auto-created items summary section (new clients, new thematic areas with counts)
+  - Missing columns error section with badges and "Download Template" CTA
+  - Enhanced RowErrorCard with "What's Wrong & How to Fix" section showing expected format
+  - Info messages section showing auto-created items per row
+  - Smart features callout in step 1 (auto-create clients, areas, smart columns)
+  - Fixed URL.createObjectURL(blob) typo (was URL.createObjectURL(url))
+- Updated proposals page import dialog title and description
+
+Stage Summary:
+- Consolidated import: Single Excel file imports proposals + auto-creates clients and thematic areas
+- Precise errors: Each error shows field name, user's value, what's wrong, and the expected format
+- Template: 3-sheet Excel file with samples, instructions, and valid values reference
+- Schema: Proposal model now includes winningChances and focalPerson fields
+- Files changed: prisma/schema.prisma, src/app/api/import-proposals/route.ts, src/components/import-dialog.tsx, src/components/crm/proposals.tsx
